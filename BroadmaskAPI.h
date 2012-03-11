@@ -10,6 +10,7 @@
 #include "JSAPIAuto.h"
 #include "BrowserHost.h"
 #include "Broadmask.h"
+#include "BCInstance.h"
 
 #ifndef H_BroadmaskAPI
 #define H_BroadmaskAPI
@@ -31,21 +32,9 @@ public:
     BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host) :
         m_plugin(plugin), m_host(host)
     {
-        registerMethod("echo",      make_method(this, &BroadmaskAPI::echo));
-        registerMethod("testEvent", make_method(this, &BroadmaskAPI::testEvent));
-        registerMethod("testgmp", make_method(this, &BroadmaskAPI::testgmp));
-        
-        // Read-write property
-        registerProperty("testString",
-                         make_property(this,
-                                       &BroadmaskAPI::get_testString,
-                                       &BroadmaskAPI::set_testString));
-
-
-        // Read-only property
-        registerProperty("version",
-                         make_property(this,
-                                       &BroadmaskAPI::get_version));
+        registerMethod("invokeInstance", make_method(this, &BroadmaskAPI::invokeInstance));
+//        registerMethod("loadInstance", make_method(this, &BroadmaskAPI::loadInstance));
+//        registerMethod("storeInstance", make_method(this, &BroadmaskAPI::loadInstance));
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -58,31 +47,17 @@ public:
     virtual ~BroadmaskAPI() {};
 
     BroadmaskPtr getPlugin();
-
-    // Read/Write property ${PROPERTY.ident}
-    std::string get_testString();
-    void set_testString(const std::string& val);
-
-    // Read-only property ${PROPERTY.ident}
-    std::string get_version();
-
-    // Method echo
-    FB::variant echo(const FB::variant& msg);
-
-	std::string testgmp(const std::string& x, const std::string& y);
+   
+    void invokeInstance(std::string gid, int N);
+    bool hasInstance(std::string gid);
+    void loadInstance(std::string gid);
     
-    // Event helpers
-    FB_JSAPI_EVENT(test, 0, ());
-    FB_JSAPI_EVENT(echo, 2, (const FB::variant&, const int));
-
-    // Method test-event
-    void testEvent();
-
 private:
     BroadmaskWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;
+    
+    std::map<std::string, BCInstance> instances;
 
-    std::string m_testString;
 };
 
 #endif // H_BroadmaskAPI

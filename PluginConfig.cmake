@@ -45,6 +45,7 @@ set(FBSTRING_MIMEType "application/x-broadmask")
 # Uncomment this next line if you're not planning on your plugin doing
 # any drawing:
 
+
 set (FB_GUI_DISABLED 1)
 
 # Mac plugin settings. If your plugin does not draw, set these all to 0
@@ -57,3 +58,5 @@ set(FBMAC_USE_INVALIDATINGCOREANIMATION 0)
 
 # If you want to register per-machine on Windows, uncomment this line
 #set (FB_ATLREG_MACHINEWIDE 1)
+
+add_boost_library(filesystem)
