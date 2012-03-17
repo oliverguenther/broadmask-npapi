@@ -11,6 +11,7 @@
 #include <boost/timer.hpp>
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
+#include <boost/filesystem/fstream.hpp> 
 
 
 #include "JSObject.h"
@@ -21,12 +22,13 @@
 #include <gmpxx.h>
 
 extern "C" {
-#include "pbc_bes.h"
+#include "PBC_bes/pbc_bes.h"
 }
 
 #include "BroadmaskAPI.h"
 
 using namespace std;
+
 
 /** Load the BES instance with the GID or create one if non-existant
  *
@@ -42,8 +44,10 @@ void BroadmaskAPI::invokeInstance(string gid, int N) {
         return;
     }
     
-    BCInstance instance (gid, N);
-    instances.insert( pair<string, BCInstance>(gid,instance) );
+    BCInstance bci = BCInstance(gid, N);    
+    instances.insert( pair<string, BCInstance>(gid, bci) );
+    
+    bci.store(false);
               
 }
 

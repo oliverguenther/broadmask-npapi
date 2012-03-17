@@ -12,6 +12,7 @@
 #include "Broadmask.h"
 #include "BCInstance.h"
 
+
 #ifndef H_BroadmaskAPI
 #define H_BroadmaskAPI
 
@@ -57,6 +58,7 @@ private:
     FB::BrowserHostPtr m_host;
     
     std::map<std::string, BCInstance> instances;
+
 
 };
 
