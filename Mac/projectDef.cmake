@@ -47,4 +47,5 @@ target_link_libraries(${PROJECT_NAME}
     -I/usr/local/include/
     -lgmp
     -lpbc
+	-lcryptopp
     )

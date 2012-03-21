@@ -18,14 +18,9 @@
 #include "variant_list.h"
 #include "DOM/Document.h"
 #include "global/config.h"
+#include "BroadmaskAPI.h"
 
 #include <gmpxx.h>
-
-extern "C" {
-#include "PBC_bes/pbc_bes.h"
-}
-
-#include "BroadmaskAPI.h"
 
 using namespace std;
 

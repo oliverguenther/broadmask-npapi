@@ -2,6 +2,8 @@
 #define H_BCINSTANCE
 
 #include <stdexcept>
+#include <map>
+
 // filesystem
 #include <boost/filesystem.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -29,6 +31,29 @@ public:
 	~BCInstance();
 
 	std::string groupid();
+
+    
+    /**
+     * Adds a member to this system
+     * @param id std::string member id
+     * @return member id (>= 0) if user was added, -1 otherwise
+     */
+    int addMember(std::string id);
+    
+    
+    /**
+     * Tries to remove a member from this system
+     * @param id std::string member id
+     */
+    void removeMember(std::string id);
+    
+    /**
+     * Return instance id from member id
+     * @param id std::string member id
+     * @return memberid (>= 0) when id is member in this system, -1 otherwise
+     */
+    int memberID(std::string id);
+    
     
     /**
      * Store BES state to its instance file
@@ -41,6 +66,16 @@ public:
      * @return 0 if successful, 1 otherwise
      */
     int restore();
+    
+    /** 
+     * Derivate a symmetric encryption key to be used within subset S
+     * @param[out] 
+     * @param[in] S indices of participating receivers
+     * @param[in] num_receivers size of S
+     * @return key size
+     */
+    void derivate_encryption_key(char *key, size_t keylen, int *S, int num_receivers);
+
 
     
     
@@ -55,6 +90,10 @@ private:
     
     // Broadcast encryption system
     bes_system_t sys;
+    
+    // userids mapped to bes
+    std::map <std::string, int> users;
+    std::vector<int> availableIDs;
     
     void element_from_stream(element_t el, std::ifstream& is, int numbytes);
     void element_to_stream(element_t el, std::ofstream& is);

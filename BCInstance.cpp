@@ -17,6 +17,10 @@
 #include <boost/timer.hpp>
 #include <fstream>
 
+// hkdf scheme, rfc5869
+#include <cryptopp/hmac.h>
+#include <cryptopp/hkdf.h>
+#include <cryptopp/sha.h>
 
 namespace fs = boost::filesystem;
 using namespace std;
@@ -77,6 +81,68 @@ BCInstance::BCInstance(string groupID, unsigned int numUsers) {
     }
     cout << "Time elapsed:" << total.elapsed() << endl;
     
+}
+
+void BCInstance::derivate_encryption_key(char *key, size_t keylen, int *S, int num_receivers) {
+    keypair_t keypair;
+    get_encryption_key(&keypair, S, num_receivers, sys, gbs);
+    
+    int keysize = element_length_in_bytes(keypair->K);
+    char *buf = new char[keysize];
+    
+    element_to_bytes(reinterpret_cast<unsigned char*>(buf), keypair->K);
+    
+    const byte salt[53] = {
+        0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 
+        0x48, 0x69, 0x64, 0x69, 0x6E, 0x67, 0x20, 0x69, 0x6E, 0x20, 0x4F, 0x6E, 0x6C, 0x69, 0x6E, 0x65, 0x20, 0x53, 0x6F, 0x63, 
+        0x69, 0x61, 0x6C, 0x20, 0x4E, 0x65, 0x74, 0x77, 0x6F, 0x72, 0x6B, 0x73, 0x0A
+    };
+
+    CryptoPP::HMACKeyDerivationFunction<CryptoPP::SHA256> hkdf;
+    hkdf.DeriveKey(
+              (byte*) key, keylen, // Derived key
+              (const byte*) buf, keysize, // input key material (ikm)
+              salt, 53, // Salt
+              NULL, 0 // context information
+              );
+    
+}
+
+int BCInstance::addMember(string id) {
+    int curID = memberID(id);
+    if (curID >= 0)
+        return curID;
+    
+    if (!availableIDs.empty()) {
+        curID = availableIDs.front();
+        users.insert ( pair<string,int>(id, curID) );
+        availableIDs.erase(availableIDs.begin(), availableIDs.begin()+1);
+        return curID;
+        
+    } else {
+        cout << "System " << gid << " is full. Cannot add member" << endl;
+        return -1;
+    }
+    
+}
+
+void BCInstance::removeMember(string id) {
+    map<string, int>::iterator it = users.find(id);
+    if (it != users.end()) {
+        availableIDs.push_back(it->second);
+        users.erase(it);
+    }
+}
+
+
+
+int BCInstance::memberID(std::string id) {
+    map<string, int>::iterator it = users.find(id);
+    
+    if (it == users.end())
+        return -1;
+    else
+        return it->second;
 }
 
 void BCInstance::element_from_stream(element_t el, std::ifstream& is, int numbytes) {
