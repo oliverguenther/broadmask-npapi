@@ -37,12 +37,14 @@ const int kDerivedKeysize = 256;
 
 
 BES_sender::BES_sender(string gid, int num_users) : BES_base(gid, num_users) {
-    cout << "Setting up " << gid << "as encryption system" << endl;    
+    cout << "Setting up " << gid << " as encryption system" << endl;    
     setup(&sys, gbs);
 }
 
 BES_sender::BES_sender(const BES_sender& b) {
     
+    N = b.N;
+    gid = b.gid;
     sys = b.sys;
     users = b.users;
     availableIDs = b.availableIDs;
@@ -135,7 +137,7 @@ int BES_sender::restore() {
     // Restore global parameters
     setup_global_system(&gbs, params, N);
     
-    fs::path bcfile = get_instance_file(gid, "bes");
+    fs::path bcfile = get_instance_file(gid, "bes_sender");
     
     if (!fs::is_regular_file(bcfile)) {
         cout << "No saved instance of " << gid << endl;
@@ -191,7 +193,7 @@ int BES_sender::restore() {
 }
 
 int BES_sender::store(bool force) {
-    fs::path bcfile = get_instance_file(gid, "bes");
+    fs::path bcfile = get_instance_file(gid, "bes_sender");
     
     if (fs::is_regular_file(bcfile) && !force) {
         cout << "BES already stored" << endl;

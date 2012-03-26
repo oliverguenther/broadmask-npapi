@@ -20,7 +20,9 @@ const char* BES_base::params =
 "sign1 1\n"
 "sign0 1";
 
-BES_base::BES_base() {}
+BES_base::BES_base() {
+    cout << "fooooo" << endl;
+}
 
 BES_base::BES_base(string groupID, int num_users) {
     gid = groupID;

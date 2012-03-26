@@ -10,7 +10,7 @@ fs::path broadmask_root() {
     fs::path broadmask_dir(fs::path(getenv("HOME")) / ".broadmask");
 
     if(!fs::is_directory(broadmask_dir)) {
-        fs::create_directory(broadmask_dir);
+        fs::create_directories(broadmask_dir);
     }
 
     return broadmask_dir;
@@ -20,10 +20,14 @@ fs::path broadmask_root() {
 }
 
 fs::path instance_dir(string &gid) {
-    fs::path instance_dir = (broadmask_root() / "instances") / gid;
+    fs::path instance_dir = (broadmask_root() / "instances");
+    instance_dir /= gid;
+    
+    cout << "Path is " << instance_dir.string() << endl;
+
     
     if(!fs::is_directory(instance_dir)) {
-        fs::create_directory(instance_dir);
+        fs::create_directories(instance_dir);
     }
     
     return instance_dir;
@@ -35,7 +39,7 @@ fs::path get_instance_file(string gid, string file) {
     
     instance /= file;
     
-    cout << "Path is " << instance.string() << " - exists? " << fs::is_regular_file(file) << endl;
+    cout << "Path is " << instance.string() << " - exists? " << fs::is_regular_file(instance) << endl;
     return instance;
     
 }
@@ -55,8 +59,8 @@ pair< vector<string>, vector<string> > stored_instances() {
             continue;
         
         // Check for sender/receiving instance
-        fs::path spath = instance / "sender";
-        fs::path rpath = instance / "receiver"; 
+        fs::path spath = instance / "bes_sender";
+        fs::path rpath = instance / "bes_receiver"; 
         
         if (fs::is_regular_file(spath))
             sender.push_back(spath.string());

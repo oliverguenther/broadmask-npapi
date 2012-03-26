@@ -5,6 +5,7 @@
  \**********************************************************/
 
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <cmath>
 
@@ -52,7 +53,17 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
     } else {
         instance = new BES_sender(gid, N);
         sending_groups.insert(pair<string, BES_sender> (gid, *instance));
-        storeInstance(instance, "sender");
+
+        // Store BES system
+        instance->store(true);
+        
+        // Store Instance 
+        string classpath(bcfile.string());
+        classpath += "_serialized";
+        
+        std::ofstream ofs(classpath.c_str());
+        boost::archive::text_oarchive oa(ofs);
+        oa << *(instance);
     }
     
     if (instance == NULL) {
@@ -78,7 +89,16 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string public_data
         BES_receiver *instance = new BES_receiver(gid, N, public_data, private_key);
         receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
         
-        storeInstance(instance, "receiver");
+        // Store BES system
+        instance->store(true);
+        
+        // Store Instance 
+        string classpath(bcfile.string());
+        classpath += "_serialized";
+        
+        std::ofstream ofs(classpath.c_str());
+        boost::archive::text_oarchive oa(ofs);
+        oa << *(instance);  
         delete instance;
     }
     
@@ -90,12 +110,15 @@ BES_base* BroadmaskAPI::load_instance(fs::path path) {
         return NULL;
     }
     
-    if (path.filename() == "receiver") {
+    if (path.filename() == "bes_receiver") {
         BES_receiver *instance = new BES_receiver;
         
         cout << "Loading receiver instance " << path.string() << endl;
         
-        std::ifstream ifs(path.string().c_str());
+        string classpath(path.string());
+        classpath += "_serialized";
+        
+        std::ifstream ifs(classpath.c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);
         ia >> *(instance);
         
@@ -103,14 +126,22 @@ BES_base* BroadmaskAPI::load_instance(fs::path path) {
         receiving_groups.insert(pair<string, BES_receiver> (instance->groupid(),*instance));
         
         return instance;
-    } else if (path.filename() == "sender") {
+    } else if (path.filename() == "bes_sender") {
         BES_sender *instance = new BES_sender;
         
         cout << "Loading sender instance " << path.string() << endl;
         
-        std::ifstream ifs(path.string().c_str());
+        string classpath(path.string());
+        classpath += "_serialized";
+        
+        std::ifstream ifs(classpath.c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);
-        ia >> *(instance);
+        try {
+            cout << "Input stream is good? " << ifs.good() << " is eof?" << ifs.eof() << endl;
+            ia >> *instance;
+        } catch (exception& e) {
+                cout << e.what() << endl;
+        }
         
         instance->restore();
         sending_groups.insert(pair<string, BES_sender> (instance->groupid(),*instance));

@@ -51,7 +51,7 @@ using namespace std;
 
 BES_receiver::BES_receiver(string groupid, int N, string public_data, string private_key) : BES_base(groupid, N) {
     
-    cout << "Setting up " << gid << "as decryption system" << endl;    
+    cout << "Setting up " << gid << " as decryption system" << endl;    
     
     istringstream public_params(public_data);
     
@@ -143,7 +143,7 @@ int BES_receiver::restore() {
     // Restore global parameters
     setup_global_system(&gbs, params, N);
     
-    fs::path bcfile = get_instance_file(gid, "bes");
+    fs::path bcfile = get_instance_file(gid, "bes_receiver");
     
     if (!fs::is_regular_file(bcfile)) {
         cout << "No saved instance of " << gid << endl;
@@ -190,7 +190,7 @@ int BES_receiver::restore() {
 }
 
 int BES_receiver::store(bool force) {
-    fs::path bcfile = get_instance_file(gid, "bes");
+    fs::path bcfile = get_instance_file(gid, "bes_receiver");
     
     if (fs::is_regular_file(bcfile) && !force) {
         cout << "BES already stored" << endl;
