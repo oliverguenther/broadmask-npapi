@@ -10,6 +10,24 @@
 #include <cryptopp/hkdf.h>
 #include <cryptopp/sha.h>
 
+#include "filters.h"
+using CryptoPP::StringSink;
+using CryptoPP::StringSource;
+using CryptoPP::StreamTransformationFilter;
+
+#include "aes.h"
+using CryptoPP::AES;
+
+#include "modes.h"
+using CryptoPP::CFB_Mode;
+
+#include "cryptlib.h"
+using CryptoPP::Exception;
+
+#include "osrng.h"
+using CryptoPP::AutoSeededRandomPool;
+
+
 #include "utils.h"
 
 namespace fs = boost::filesystem;
@@ -41,14 +59,61 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 }
     
 
-void BES_sender::derivate_encryption_key(char *key, size_t keylen, int *S, int num_receivers) {
-    keypair_t keypair;
-    get_encryption_key(&keypair, S, num_receivers, sys, gbs);
+void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<int>& S, std::string& data) {
+    bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
     
-    int keysize = element_length_in_bytes(keypair->K);
+    // Receivers
+    ct->num_receivers = S.size();
+    ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
+    
+    std::copy(ct->receivers, ct->receivers + ct->num_receivers, S.begin());
+    
+    // Key generation
+    keypair_t keypair;
+    get_encryption_key(&keypair, ct->receivers, ct->num_receivers, sys, gbs);
+    
+
+    // HDR
+    ct->HDR = keypair->HDR;
+    
+    // Key derivation
+    unsigned char sym_key[256];
+    derivate_encryption_key(sym_key, 256, keypair->K);
+    pbc_free(keypair->K);
+    
+    // AES encrpytion    
+
+    // IV
+    ct->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
+    AutoSeededRandomPool prng;
+	prng.GenerateBlock(ct->iv, sizeof(ct->iv));
+    
+    // 
+    try {
+		CFB_Mode< AES >::Encryption enc;
+		enc.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv);
+        string cipher;
+		StringSource(data, true, new StreamTransformationFilter(enc, new StringSink(cipher)));
+        
+        ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
+        ct->ct_length = cipher.size();
+        std::copy(cipher.begin(), cipher.end(), ct->ct);        
+        *cts = ct;
+        
+	} catch(const CryptoPP::Exception& e) {
+		cerr << e.what() << endl;
+        ct = NULL;
+	}
+    
+}
+
+
+void BES_sender::derivate_encryption_key(unsigned char *key, size_t keylen, element_t bes_key) {
+
+    int keysize = element_length_in_bytes(bes_key);
     unsigned char *buf = new unsigned char[keysize];
     
-    element_to_bytes(buf, keypair->K);
+    element_to_bytes(buf, bes_key);
     
     const byte salt[53] = {
         0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 
@@ -58,7 +123,7 @@ void BES_sender::derivate_encryption_key(char *key, size_t keylen, int *S, int n
     
     CryptoPP::HMACKeyDerivationFunction<CryptoPP::SHA256> hkdf;
     hkdf.DeriveKey(
-                   (byte*) key, keylen, // Derived key
+                   key, keylen, // Derived key
                    (const byte*) buf, keysize, // input key material (ikm)
                    salt, 53, // Salt
                    NULL, 0 // context information

@@ -29,7 +29,7 @@ public:
      * @param S receivers of the message
      * @param data binary data to encrypt
      */
-    bes_ciphertext_t bes_encrypt(std::vector<int>& S, std::string& data);
+    void bes_encrypt(bes_ciphertext_t *cts, std::vector<int>& S, std::string& data);
     
     
     /** 
@@ -100,12 +100,11 @@ private:
     
     /** 
      * Derivate a symmetric encryption key to be used within subset S
-     * @param[out] 
-     * @param[in] S indices of participating receivers
-     * @param[in] num_receivers size of S
-     * @return key size
+     * @param[out] key symmetric key of size keylen
+     * @param[in] keylen length input for KDF
+     * @param[in] bes_key element_t key from bes instance
      */
-    void derivate_encryption_key(char *key, size_t keylen, int *S, int num_receivers);
+    void derivate_encryption_key(unsigned char *key, size_t keylen, element_t bes_key);
     
     
     //

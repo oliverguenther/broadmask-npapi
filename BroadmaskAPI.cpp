@@ -21,6 +21,7 @@
 #include "DOM/Document.h"
 #include "global/config.h"
 #include "BroadmaskAPI.h"
+#include "BitmapWrapper.h"
 
 #include "utils.h"
 
@@ -166,15 +167,23 @@ string BroadmaskAPI::encrypt_b64(std::string gid, std::string receivers, std::st
     while ( ss >> num)
         v_receivers.push_back(num);
 
-    bes_ciphertext_t ct = bci.bes_encrypt(v_receivers, data);
+    bes_ciphertext_t ct;
+    bci.bes_encrypt(&ct, v_receivers, data);
     
-    ostringstream ctos;
-    bci.ciphertext_to_stream(ct, ctos);
+    // Encode to Base64
+    stringstream ctos, b64os;
+    bci.ciphertext_to_stream(ct, ctos);    
+    b64.Encode(ctos, b64os);
     
-    return ctos.str();
+    if (image) {
+        vector<unsigned char> b64data, b64padded;
+        vector_from_stream(b64data, b64os);
+        b64padded = encodeImage(b64data);
+    }        
+    return b64os.str();
 }
-
-string BroadmaskAPI::decrypt_b64(string gid, string receivers, string ct_data, bool image) {
+ 
+string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
     map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
     
     if (it == receiving_groups.end()) {
@@ -184,25 +193,25 @@ string BroadmaskAPI::decrypt_b64(string gid, string receivers, string ct_data, b
     
     BES_receiver bci = it->second;
     
-    vector<int> v_receivers;
-    stringstream ss(receivers);
-    
-    int num;
-    while ( ss >> num)
-        v_receivers.push_back(num);
-    
+    if (image) {
+        stringstream b64is(ct_data);
+        vector<unsigned char> b64padded,b64data;
+        vector_from_stream(b64padded, b64is);
+        b64data = decodeImage(b64data);
+        ct_data = string(b64data.begin(), b64data.end());
+        
+    }
+    istringstream b64is(ct_data);
+
     
     // Decode from Base64
-    istringstream b64is(ct_data);
     stringstream ctss;    
     b64.Decode(b64is, ctss);
-    
-    
-    
+        
     bes_ciphertext_t ct;
     bci.ciphertext_from_stream(&ct, ctss);
     
-    return "";
+    return bci.bes_decrypt(ct);
 }
 
 

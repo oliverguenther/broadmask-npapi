@@ -104,7 +104,7 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    std::string decrypt_b64(std::string gid, std::string receivers, std::string data, bool image);
+    std::string decrypt_b64(std::string gid, std::string ct_data, bool image);
     
     
 private:

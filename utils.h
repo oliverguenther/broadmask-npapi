@@ -24,7 +24,6 @@ boost::filesystem::path get_instance_file(std::string gid, std::string file);
 std::pair< std::vector<std::string>, std::vector<std::string> > stored_instances();
 
 
-template<class T>
-void vector_from_stream(std::vector<T>& v, std::istream& is);
+void vector_from_stream(std::vector<unsigned char>& v, std::istream& is);
 
 #endif

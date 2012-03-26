@@ -72,9 +72,8 @@ pair< vector<string>, vector<string> > stored_instances() {
     
 }
 
-template<class T>
-void vector_from_stream(std::vector<T>& v, std::istream& is) {
-    T el;
+void vector_from_stream(std::vector<unsigned char>& v, std::istream& is) {
+    unsigned char el;
     while (is >> el) {
         v.push_back(el);
     }
