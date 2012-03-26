@@ -1,0 +1,171 @@
+#include "BES_sender.h"
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <cmath>
+#include <fstream>
+
+// hkdf scheme, rfc5869
+#include <cryptopp/hmac.h>
+#include <cryptopp/hkdf.h>
+#include <cryptopp/sha.h>
+
+#include "utils.h"
+
+namespace fs = boost::filesystem;
+using namespace std;
+
+const int kDerivedKeysize = 256;
+
+
+BES_sender::BES_sender(string gid, int num_users) : BES_base(gid, num_users) {
+    cout << "Setting up " << gid << "as encryption system" << endl;    
+    setup(&sys, gbs);
+}
+
+BES_sender::BES_sender(const BES_sender& b) {
+    
+    sys = b.sys;
+    users = b.users;
+    availableIDs = b.availableIDs;
+}
+
+
+void BES_sender::public_params_to_stream(std::ostream& os) {
+    os << N << " ";
+    int element_size = element_length_in_bytes(sys->PK->g);
+    os << element_size << " ";
+    os << kDerivedKeysize << "\n";
+    
+    public_key_to_stream(sys->PK, os);
+}
+    
+
+void BES_sender::derivate_encryption_key(char *key, size_t keylen, int *S, int num_receivers) {
+    keypair_t keypair;
+    get_encryption_key(&keypair, S, num_receivers, sys, gbs);
+    
+    int keysize = element_length_in_bytes(keypair->K);
+    unsigned char *buf = new unsigned char[keysize];
+    
+    element_to_bytes(buf, keypair->K);
+    
+    const byte salt[53] = {
+        0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 
+        0x48, 0x69, 0x64, 0x69, 0x6E, 0x67, 0x20, 0x69, 0x6E, 0x20, 0x4F, 0x6E, 0x6C, 0x69, 0x6E, 0x65, 0x20, 0x53, 0x6F, 0x63, 
+        0x69, 0x61, 0x6C, 0x20, 0x4E, 0x65, 0x74, 0x77, 0x6F, 0x72, 0x6B, 0x73, 0x0A
+    };
+    
+    CryptoPP::HMACKeyDerivationFunction<CryptoPP::SHA256> hkdf;
+    hkdf.DeriveKey(
+                   (byte*) key, keylen, // Derived key
+                   (const byte*) buf, keysize, // input key material (ikm)
+                   salt, 53, // Salt
+                   NULL, 0 // context information
+                   );
+}
+
+int BES_sender::restore() {
+    
+    // Restore global parameters
+    setup_global_system(&gbs, params, N);
+    
+    fs::path bcfile = get_instance_file(gid, "bes");
+    
+    if (!fs::is_regular_file(bcfile)) {
+        cout << "No saved instance of " << gid << endl;
+        return 1;
+    }
+    
+    ifstream bcs(bcfile.string().c_str(), std::ios::in|std::ios::binary);
+    
+    if (!bcs.good()) {
+        cout << "Unable to open instance file" << endl;
+        return 1;
+    }
+    
+    
+    int version, element_size;
+    
+    bcs >> version;
+    bcs >> element_size;
+    bcs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    
+    
+    // System
+    sys = (bes_system_t) pbc_malloc(sizeof(struct bes_system_s));
+    
+    // Public Key
+    sys->PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
+    
+    element_from_stream(sys->PK->g, bcs, element_size);
+    
+    int i;
+    // g_i
+    sys->PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
+    for (i = 0; i < 2*gbs->B; ++i) {
+        element_from_stream(sys->PK->g_i[i], bcs, element_size);
+    }
+    
+    // v_i
+    sys->PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
+    for (i = 0; i < gbs->A; ++i) {
+        element_from_stream(sys->PK->v_i[i], bcs, element_size);
+    }
+    
+    // Store private keys
+    sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));        
+    for (i = 0; i < (int) N; ++i) {
+        element_from_stream(sys->d_i[i], bcs, element_size);
+    }
+    
+    return 0;
+    
+    
+    
+}
+
+int BES_sender::store(bool force) {
+    fs::path bcfile = get_instance_file(gid, "bes");
+    
+    if (fs::is_regular_file(bcfile) && !force) {
+        cout << "BES already stored" << endl;
+        return 0;
+    }
+    cout << "Storing BES to " << bcfile.string() << endl;
+    
+    
+    ofstream os(bcfile.string().c_str(), std::ios::out|std::ios::binary);
+    int version = 0;
+    int element_size = element_length_in_bytes(sys->PK->g);
+    
+    os << version << " ";
+    os << element_size << endl;
+    
+    // Store Public Key
+    // g
+    element_to_stream(sys->PK->g, os);
+    
+    int i;
+    // g_i
+    for (i = 0; i < 2*gbs->B; ++i) {
+        element_to_stream(sys->PK->g_i[i], os);
+    }
+    
+    // v_i
+    for (i = 0; i < gbs->A; ++i) {
+        element_to_stream(sys->PK->v_i[i], os);
+    }
+    
+    // Store private keys
+    for (i = 0; i < (int) N; ++i) {
+        element_to_stream(sys->d_i[i], os);
+    }
+    
+    return 0;
+    
+}
+
+    
+    
+BES_sender::~BES_sender() {}

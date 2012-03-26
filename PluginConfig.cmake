@@ -60,3 +60,4 @@ set(FBMAC_USE_INVALIDATINGCOREANIMATION 0)
 #set (FB_ATLREG_MACHINEWIDE 1)
 
 add_boost_library(filesystem)
+add_boost_library(serialization)
