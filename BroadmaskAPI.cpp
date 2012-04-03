@@ -30,6 +30,22 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 
+BES_sender* BroadmaskAPI::get_sender_instance(string gid) {
+    map<string,BES_sender>::iterator it = sending_groups.find(gid);
+    if (it != sending_groups.end())
+        return &(it->second);
+    else
+        return NULL;
+}
+
+BES_receiver* BroadmaskAPI::get_receiver_instance(string gid) {
+    map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
+    if (it != receiving_groups.end())
+        return &(it->second);
+    else
+        return NULL;
+}
+
 /** Load the BES instance with the GID or create one if non-existant
  *
  * @param gid Group identifier
@@ -182,14 +198,12 @@ void BroadmaskAPI::storeInstance(BES_base *bci, string type) {
 
 
 string BroadmaskAPI::encrypt_b64(std::string gid, std::string receivers, std::string data, bool image) {
-    map<string,BES_sender>::iterator it = sending_groups.find(gid);
+    BES_sender *bci = get_sender_instance(gid);
     
-    if (it == sending_groups.end()) {
+    if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
         return "";
     }
-    
-    BES_sender bci = it->second;
     
     vector<int> v_receivers;
     stringstream ss(receivers);
@@ -199,11 +213,11 @@ string BroadmaskAPI::encrypt_b64(std::string gid, std::string receivers, std::st
         v_receivers.push_back(num);
 
     bes_ciphertext_t ct;
-    bci.bes_encrypt(&ct, v_receivers, data);
+    bci->bes_encrypt(&ct, v_receivers, data);
     
     // Encode to Base64
     stringstream ctos, b64os;
-    bci.ciphertext_to_stream(ct, ctos);    
+    bci->ciphertext_to_stream(ct, ctos);    
     b64.Encode(ctos, b64os);
     
     if (image) {
@@ -215,14 +229,12 @@ string BroadmaskAPI::encrypt_b64(std::string gid, std::string receivers, std::st
 }
  
 string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
-    map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
+    BES_receiver *bci = get_receiver_instance(gid);
     
-    if (it == receiving_groups.end()) {
-        cout << "Receiving instance " << gid << " not found" << endl;
+    if (!bci) {
+        cout << "Sender instance " << gid << " not found" << endl;
         return "";
     }
-    
-    BES_receiver bci = it->second;
     
     if (image) {
         stringstream b64is(ct_data);

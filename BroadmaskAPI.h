@@ -120,6 +120,8 @@ private:
     BES_base* load_instance(boost::filesystem::path p);
     void storeInstance(BES_base *bci, std::string type);
 
+    BES_sender* get_sender_instance(std::string gid);
+    BES_receiver* get_receiver_instance(std::string gid);
 
 };
 
