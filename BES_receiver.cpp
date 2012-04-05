@@ -55,31 +55,28 @@ BES_receiver::BES_receiver(string groupid, int N, string public_data, string pri
     
     istringstream public_params(public_data);
     
-    int num_users, element_size, sk_size;
+    int element_size;
     public_params >> element_size;
-    public_params >> sk_size;
+    public_params >> keylen;
     public_params.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    
-    N = num_users;
-    gid = groupid;
+
     
     // Read public key
-    pubkey_t pk;    
-    public_key_from_stream(&pk, public_params, element_size);
+    public_key_from_stream(&PK, public_params, element_size);
     
     // Read private key
     istringstream skss(private_key);
-    pair<int, element_t> sk;
     
-    private_key_from_stream(&sk, skss, element_size);
+    private_key_from_stream(&SK, skss, element_size);
 }
 
 BES_receiver::BES_receiver(const BES_receiver& b) {
-    private_key = b.private_key;
-    
-    PK = b.PK;
-    
+    N = b.N;
+    gid = b.gid;
+    SK = b.SK;    
+    PK = b.PK;    
     keylen = b.keylen;
+    setup_global_system(&gbs, params, N);
 }
 
 int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key) {
@@ -95,27 +92,38 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
         0x69, 0x61, 0x6C, 0x20, 0x4E, 0x65, 0x74, 0x77, 0x6F, 0x72, 0x6B, 0x73, 0x0A
     };
     
-    HMACKeyDerivationFunction<SHA256> hkdf;
-    hkdf.DeriveKey(
-                   (byte*) key, keylen, // Derived key
-                   (const byte*) buf, keysize, // input key material (ikm)
-                   salt, 53, // Salt
-                   NULL, 0 // context information
-                   );
+    try {
     
-    return keysize;
+        HMACKeyDerivationFunction<SHA256> hkdf;
+        hkdf.DeriveKey(
+                       (byte*) key, keylen, // Derived key
+                       (const byte*) buf, keysize, // input key material (ikm)
+                       salt, 53, // Salt
+                       NULL, 0 // context information
+                       );
+        
+        return keysize;
+        
+    } catch (const CryptoPP::Exception& e) {
+        cerr << e.what() << endl;
+        return 0;
+    }
     
 }
 
 string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
+    for (int i = 0; i < cts->num_receivers; ++i) {
+        cout << cts->receivers[i] << " ";
+    }
+    cout << "\n";
+    
     
     element_t raw_key;
-    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, private_key.first, 
-                        private_key.second, cts->HDR, PK);
+    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
     
     
-    unsigned char *derived_key;
+    unsigned char *derived_key = (unsigned char*) malloc(keylen * sizeof(unsigned char));
     int derived_keysize = derivate_decryption_key(derived_key, raw_key);
 
 	try {
@@ -158,10 +166,11 @@ int BES_receiver::restore() {
     }
     
     
-    int version, element_size;
+    int version, element_size, sk_id;
     
     bcs >> version;
     bcs >> element_size;
+    bcs >> sk_id;
     bcs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     
     
@@ -182,6 +191,14 @@ int BES_receiver::restore() {
     for (i = 0; i < gbs->A; ++i) {
         element_from_stream(PK->v_i[i], bcs, element_size);
     }
+    
+    
+    // Private Key
+    SK = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
+    
+    SK->id = sk_id;
+    
+    element_from_stream(SK->privkey, bcs, element_size);
     
     return 0;
     
@@ -204,7 +221,8 @@ int BES_receiver::store(bool force) {
     int element_size = element_length_in_bytes(PK->g);
     
     os << version << " ";
-    os << element_size << endl;
+    os << element_size << " ";
+    os << SK->id << "\n";
     
     // Store Public Key
     // g
@@ -221,9 +239,19 @@ int BES_receiver::store(bool force) {
         element_to_stream(PK->v_i[i], os);
     }
     
+    // Store Private Key
+    element_to_stream(SK->privkey, os);
+
+    
     return 0;
     
 }
+
+string BES_receiver::instance_file() {
+    fs::path bcfile = get_instance_file(gid, "bes_receiver");
+    return bcfile.string();
+}
+
 
 
 

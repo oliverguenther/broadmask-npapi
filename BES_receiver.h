@@ -44,9 +44,12 @@ public:
      */
     int restore();
     
+    std::string instance_file();
+
+    
 private:
     
-    std::pair<int, element_t> private_key;
+    bes_privkey_t SK;
     
     pubkey_t PK;
     
@@ -63,8 +66,8 @@ private:
     void serialize(Archive & ar, const unsigned int version)
     {
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<BES_base>(*this));
-//        ar & N;
-//        ar & gid;
+        ar & N;
+        ar & gid;
         ar & keylen;
     }
     

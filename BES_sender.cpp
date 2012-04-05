@@ -4,6 +4,11 @@
 #include <iomanip>
 #include <cmath>
 #include <fstream>
+#include <algorithm>
+#include <utility>
+
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
 
 // hkdf scheme, rfc5869
 #include <cryptopp/hmac.h>
@@ -35,10 +40,20 @@ using namespace std;
 
 const int kDerivedKeysize = 256;
 
+struct inc_index {
+    int cur;
+    inc_index() {cur=0;}
+    int operator()() {return cur++;}
+} FillIndex;
 
 BES_sender::BES_sender(string gid, int num_users) : BES_base(gid, num_users) {
     cout << "Setting up " << gid << " as encryption system" << endl;    
     setup(&sys, gbs);
+    
+    // Initially, all ids are available
+    availableIDs.resize(num_users);
+    generate(availableIDs.begin(), availableIDs.end(), FillIndex);
+    
 }
 
 BES_sender::BES_sender(const BES_sender& b) {
@@ -48,11 +63,59 @@ BES_sender::BES_sender(const BES_sender& b) {
     sys = b.sys;
     users = b.users;
     availableIDs = b.availableIDs;
+    setup_global_system(&gbs, params, N);
+}
+
+int BES_sender::add_member(std::string id) {
+
+    int current_id = member_id(id);
+    if (current_id != -1)
+        return current_id;
+    
+    if (availableIDs.empty())
+        return -1;
+    
+    int sys_id = availableIDs.front();
+    availableIDs.pop_front();
+    
+    users.insert(pair<string, int> (id, sys_id));
+    return sys_id;    
+}
+
+
+void BES_sender::remove_member(std::string id) {
+    map<string, int>::iterator it = users.find(id);
+    
+    if (it != users.end()) {
+        availableIDs.push_back(it->second);
+        users.erase(it);        
+    }
+}
+
+int BES_sender::member_id(std::string id) {
+    map<string, int>::iterator it = users.find(id);
+    
+    if (it != users.end()) {
+        return it->second;     
+    } else {
+        return -1;
+    }
+}
+
+void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
+    int id = member_id(userID);
+    if (id == -1)
+        return;
+    
+    bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
+    sk->id = id;
+    memcpy(sk->privkey, sys->d_i[id], sizeof(element_t));
+    
+    *sk_ptr = sk;
 }
 
 
 void BES_sender::public_params_to_stream(std::ostream& os) {
-    os << N << " ";
     int element_size = element_length_in_bytes(sys->PK->g);
     os << element_size << " ";
     os << kDerivedKeysize << "\n";
@@ -61,14 +124,28 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 }
     
 
-void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<int>& S, std::string& data) {
+void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std::string& data) {
+    
     bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
     
     // Receivers
     ct->num_receivers = S.size();
-    ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
     
-    std::copy(ct->receivers, ct->receivers + ct->num_receivers, S.begin());
+    ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
+        
+    int i = 0;
+    for (vector<string>::iterator it = S.begin(); it != S.end(); ++it) {
+        int id = member_id(*it);
+        if (id == -1) {
+            cout << "Member " << *it << " is not member of this group" << endl;
+            free(ct->receivers);
+            return;
+        }
+        ct->receivers[i] = id;
+        
+        cout << "r[" << i << "] is " << id << " is " << ct->receivers[i] << endl;
+        i++;
+    }
     
     // Key generation
     keypair_t keypair;
@@ -76,13 +153,13 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<int>& S, std::st
     
 
     // HDR
-    ct->HDR = keypair->HDR;
+    ct->HDR = (element_t*) pbc_malloc( (gbs->A+1) * sizeof(element_t));
+    memcpy(ct->HDR, keypair->HDR, (gbs->A+1) * sizeof(element_t));
     
     // Key derivation
-    unsigned char sym_key[256];
-    derivate_encryption_key(sym_key, 256, keypair->K);
-    pbc_free(keypair->K);
-    
+    unsigned char sym_key[32];
+    derivate_encryption_key(sym_key, 32, keypair->K);
+        
     // AES encrpytion    
 
     // IV
@@ -231,6 +308,11 @@ int BES_sender::store(bool force) {
     
     return 0;
     
+}
+
+string BES_sender::instance_file() {
+    fs::path bcfile = get_instance_file(gid, "bes_sender");
+    return bcfile.string();
 }
 
     

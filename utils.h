@@ -12,8 +12,7 @@ using namespace std;
 
 
 boost::filesystem::path broadmask_root(std::string& gid);
-boost::filesystem::path instance_dir(std::string &gid);
-    
+boost::filesystem::path instance_dir(std::string &gid);  
 
 /**
  * Returns a filename to gid/file within the Broadmask folder

@@ -2,13 +2,14 @@
 #define H_BES_SENDER
 
 #include <map>
+#include <deque>
 #include <vector>
 #include "BES_base.h"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-#include <boost/serialization/vector.hpp>
+#include <boost/serialization/deque.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/base_object.hpp>
 
@@ -30,15 +31,15 @@ public:
      * @param S receivers of the message
      * @param data binary data to encrypt
      */
-    void bes_encrypt(bes_ciphertext_t *cts, std::vector<int>& S, std::string& data);
+    void bes_encrypt(bes_ciphertext_t *cts, std::vector<std::string>& S, std::string& data);
     
     
     /** 
      * Return the keypair (i, d_i) for the userid that is associated with index i
+     * @param a struct containing i and d_i
      * @param userID userid to receive key
-     * @return a std::pair containing i and d_i
      */
-    std::pair<int,element_t> get_private_key(std::string userID);
+    void get_private_key(bes_privkey_t* sk_ptr, std::string userID);
     
     /**
      * Return the public params required to create a receiving session
@@ -52,21 +53,23 @@ public:
      * @param id std::string member id
      * @return member id (>= 0) if user was added, -1 otherwise
      */
-    int addMember(std::string id);
+    int add_member(std::string id);
     
     
     /**
      * Tries to remove a member from this system
      * @param id std::string member id
      */
-    void removeMember(std::string id);
+    void remove_member(std::string id);
     
     /**
      * Return instance id from member id
      * @param id std::string member id
      * @return memberid (>= 0) when id is member in this system, -1 otherwise
      */
-    int memberID(std::string id);
+    int member_id(std::string id);
+    
+    std::string instance_file();
     
     
     
@@ -97,7 +100,7 @@ private:
     /*
      * IDs available in the system
      */
-    std::vector<int> availableIDs;
+    std::deque<int> availableIDs;
     
     /** 
      * Derivate a symmetric encryption key to be used within subset S

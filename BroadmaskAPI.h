@@ -42,9 +42,13 @@ public:
         m_plugin(plugin), m_host(host)
     {
         registerMethod("start_sender_instance", make_method(this, &BroadmaskAPI::start_sender_instance));
+        registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
+        registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
+        registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        
         registerMethod("start_receiver_instance", make_method(this, &BroadmaskAPI::start_receiver_instance));
         registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
         registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
+        registerMethod("testsuite", make_method(this, &BroadmaskAPI::testsuite));
 
     }
 
@@ -79,6 +83,12 @@ public:
      * @brief Tries to reload all stored (sender, receiving) instances
      */
     void restore_instances();
+    
+    std::string get_member_sk(std::string gid, std::string sysid);
+    
+    int add_member(std::string gid, std::string sysid);
+    
+    void remove_member(std::string gid, std::string sysid);
 
     /** 
      * @fn BroadmaskAPI::encrypt_b64
@@ -91,7 +101,7 @@ public:
      *
      * @return encrypted binary data, base64 encoded
      */
-    std::string encrypt_b64(std::string gid, std::string receivers, std::string data, bool image);
+    std::string encrypt_b64(std::string gid, std::vector<std::string> receivers, std::string data, bool image);
     
     /** 
      * @fn BroadmaskAPI::decrypt_b64
@@ -106,6 +116,8 @@ public:
      */    
     std::string decrypt_b64(std::string gid, std::string ct_data, bool image);
     
+    std::string testsuite();
+    
     
 private:
     BroadmaskWeakPtr m_plugin;
@@ -118,7 +130,8 @@ private:
     
     
     BES_base* load_instance(boost::filesystem::path p);
-    void storeInstance(BES_base *bci, std::string type);
+    template <class T>
+    void storeInstance(T *bci);
 
     BES_sender* get_sender_instance(std::string gid);
     BES_receiver* get_receiver_instance(std::string gid);

@@ -19,6 +19,15 @@ extern "C" {
 }
 
 /**
+ * @typedef private key struct
+ */
+
+typedef struct bes_privkey_s {
+    int id;
+    element_t privkey;
+}* bes_privkey_t;
+
+/**
  * @typedef Ciphertext struct
  */
 typedef struct bes_ciphertext_s {
@@ -57,6 +66,7 @@ public:
      */
     virtual int restore() = 0;
     
+    
     void element_from_stream(element_t el, std::istream& is, int numbytes);
     void element_to_stream(element_t el, std::ostream& is);
     
@@ -66,8 +76,8 @@ public:
     void public_key_from_stream(pubkey_t *pubkey_p, std::istream& is, int element_size);
     void public_key_to_stream(pubkey_t pk, std::ostream& os);
     
-    void private_key_from_stream(std::pair<int, element_t> *sk, std::istream& is, int element_size);
-    void private_key_to_stream(std::pair<int, element_t> sk, std::ostream& os);
+    void private_key_from_stream(bes_privkey_t *sk, std::istream& is, int element_size);
+    void private_key_to_stream(bes_privkey_t sk, std::ostream& os);
     
     
 protected:

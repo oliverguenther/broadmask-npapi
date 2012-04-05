@@ -86,9 +86,7 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
         cout << "Instance " << gid << " couldn't be loaded" << endl;
         return "";
     }
-    instance->public_params_to_stream(params);
-    delete instance;
-    
+    instance->public_params_to_stream(params);    
     return params.str();
     
 }
@@ -115,7 +113,6 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string public_data
         std::ofstream ofs(classpath.c_str());
         boost::archive::text_oarchive oa(ofs);
         oa << *(instance);  
-        delete instance;
     }
     
 }
@@ -155,14 +152,14 @@ BES_base* BroadmaskAPI::load_instance(fs::path path) {
         try {
             cout << "Input stream is good? " << ifs.good() << " is eof?" << ifs.eof() << endl;
             ia >> *instance;
+            instance->restore();
+            sending_groups.insert(pair<string, BES_sender> (instance->groupid(),*instance));
+            
+            return instance;
         } catch (exception& e) {
-                cout << e.what() << endl;
+            cout << e.what() << endl;
+            return NULL;
         }
-        
-        instance->restore();
-        sending_groups.insert(pair<string, BES_sender> (instance->groupid(),*instance));
-        
-        return instance;
     } else {
         cout << "Couldn't determine instance type " << path.string() << endl;
         return NULL;
@@ -182,38 +179,78 @@ void BroadmaskAPI::restore_instances() {
     
 }
 
-void BroadmaskAPI::storeInstance(BES_base *bci, string type) {
+template <class T>
+void BroadmaskAPI::storeInstance(T *bci) {
+    // Only derived classes of BES_base
+    (void)static_cast<BES_base*>((T*)0);
         
     // Store BES system
     bci->store(true);
     
     // Store Instance 
-    fs::path bcfile = get_instance_file(bci->groupid(), type);
+    string classpath = bci->instance_file();
+    classpath += "_serialized";
     
-    std::ofstream ofs(bcfile.string().c_str());
+    std::ofstream ofs(classpath.c_str());
     boost::archive::text_oarchive oa(ofs);
     oa << *(bci);
     
 }
 
 
-string BroadmaskAPI::encrypt_b64(std::string gid, std::string receivers, std::string data, bool image) {
+std::string BroadmaskAPI::get_member_sk(string gid, string id) {
+    BES_sender *bci = get_sender_instance(gid);
+    if (!bci) {
+        cout << "Sender instance " << gid << " not found" << endl;
+        return "";
+    }
+    
+    bes_privkey_t sk;
+    bci->get_private_key(&sk, id);
+    if (!sk) {
+        return "";
+    }
+    
+    ostringstream oss;
+    bci->private_key_to_stream(sk, oss);
+    
+    element_clear(sk->privkey);
+    
+    return oss.str();
+    
+}
+
+int BroadmaskAPI::add_member(string gid, string id) {
+    BES_sender *bci = get_sender_instance(gid);
+    if (!bci) {
+        cout << "Sender instance " << gid << " not found" << endl;
+        return -1;
+    }
+
+    int sys_id = bci->add_member(id);
+    bci->store(true);
+    return sys_id;
+    
+}
+
+void BroadmaskAPI::remove_member(std::string gid, std::string id) {
+    BES_sender *bci = get_sender_instance(gid);
+    if (bci) {
+        bci->remove_member(id);
+        bci->store(true);
+    }
+}
+
+string BroadmaskAPI::encrypt_b64(std::string gid, std::vector<std::string> receivers, std::string data, bool image) {
     BES_sender *bci = get_sender_instance(gid);
     
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
         return "";
     }
-    
-    vector<int> v_receivers;
-    stringstream ss(receivers);
-    
-    int num;
-    while ( ss >> num)
-        v_receivers.push_back(num);
 
     bes_ciphertext_t ct;
-    bci->bes_encrypt(&ct, v_receivers, data);
+    bci->bes_encrypt(&ct, receivers, data);
     
     // Encode to Base64
     stringstream ctos, b64os;
@@ -252,9 +289,9 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
     b64.Decode(b64is, ctss);
         
     bes_ciphertext_t ct;
-    bci.ciphertext_from_stream(&ct, ctss);
+    bci->ciphertext_from_stream(&ct, ctss);
     
-    return bci.bes_decrypt(ct);
+    return bci->bes_decrypt(ct);
 }
 
 
@@ -266,4 +303,70 @@ BroadmaskPtr BroadmaskAPI::getPlugin()
 		throw FB::script_error("The plugin is invalid");
 	}
 	return plugin;
+}
+
+
+std::string BroadmaskAPI::testsuite() {
+    cout << "starting testcase" << endl;
+    start_sender_instance("foo", 256);
+
+    BES_sender *sender = get_sender_instance("foo");       
+    if (!sender)
+        cout << "Sender instance foo should have been started, but wasn't" << endl;
+    
+    int add1 = add_member("foo", "1");
+    int add2 = add_member("foo", "1");
+    
+    if (add1 != add2) {
+        cout << "Inserted IDs were " << add1 << " and " << add2 << " , which are not equal" << endl;
+    }
+    
+    
+    remove_member("foo", "1");
+    int add3 = add_member("foo", "23");
+    if (add1 == add3)
+        cout << "New ID should not be old value " << add1 << endl;
+    
+    if (sender->member_id("23") != 1)
+        cout << "Member id should have been 1" << endl;
+    
+     if (sender->member_id("1") != -1)
+         cout << "Member '1' was not removed" << endl;
+    
+    
+    string foo_pub_params = start_sender_instance("test", 64);
+
+    add_member("test", "a");
+    add_member("test", "b");
+    add_member("test", "c");
+    
+    string sk_a = get_member_sk("test", "a");
+    string sk_b = get_member_sk("test", "b");
+    string sk_c = get_member_sk("test", "c");
+    
+    start_receiver_instance("foo_receiver_a", 64, foo_pub_params, sk_a);
+    start_receiver_instance("foo_receiver_b", 64, foo_pub_params, sk_b);
+    
+    
+    vector<string> s;
+    s.push_back("a");
+    s.push_back("b");
+    string messsage = "this is a test";
+    string ct_data = encrypt_b64("test", s, messsage, false);
+    
+    string rec_message_a = decrypt_b64("foo_receiver_a", ct_data, false);
+    
+    cout << rec_message_a << endl;
+    
+    
+    storeInstance(sender);
+    sending_groups.erase("test");
+    
+    sender = get_sender_instance("test");
+    if (sender != NULL)
+        cout << "sender instance not deleted" << endl;
+    
+    
+    return "";
+    
 }

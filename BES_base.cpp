@@ -52,17 +52,17 @@ void BES_base::element_to_stream(element_t el, std::ostream& os) {
 void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
     bes_ciphertext_t cipher = (bes_ciphertext_t) malloc(sizeof(bes_ciphertext_s));
     
-    int version, num_receivers, element_size, ct_length;
+    int version, element_size;
     
     is >> version;
-    is >> num_receivers;
-    is >> ct_length;
+    is >> cipher->num_receivers;
+    is >> cipher->ct_length;
     is >> element_size;
     
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    cipher->receivers = (int*) malloc(num_receivers * sizeof(int));
+    cipher->receivers = (int*) malloc(cipher->num_receivers * sizeof(int));
     
-    for (int i = 0; i < num_receivers; ++i) {
+    for (int i = 0; i < cipher->num_receivers; ++i) {
         is >> cipher->receivers[i];
     }
     
@@ -78,7 +78,8 @@ void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
         is >> cipher->iv[i];
     }
     
-    for (int i = 0; i < ct_length; ++i) {
+    cipher->ct = (unsigned char*) malloc(cipher->ct_length * sizeof(unsigned char));
+    for (int i = 0; i < cipher->ct_length; ++i) {
         is >> cipher->ct[i];
     }
     
@@ -91,15 +92,14 @@ void BES_base::ciphertext_to_stream(bes_ciphertext_t ct, ostream& os) {
     int element_size = element_length_in_bytes(ct->HDR[0]);
 
     
-    os << version;
-    os << ct->num_receivers;
-    os << ct->ct_length;
-    os << element_size;
+    os << version << " ";
+    os << ct->num_receivers << " ";
+    os << ct->ct_length << " ";
+    os << element_size << "\n";
 
-    os << "\n";
        
     for (int i = 0; i < ct->num_receivers; ++i) {
-        os << ct->receivers[i];
+        os << ct->receivers[i] << " ";
     }
     
     os << "\n";
@@ -158,17 +158,21 @@ void BES_base::public_key_to_stream(pubkey_t PK, std::ostream& os) {
         
 }
 
-void BES_base::private_key_from_stream(pair<int, element_t> *sk, std::istream& is, int element_size) {
-    is >> sk->first;
+void BES_base::private_key_from_stream(bes_privkey_t *privkey, std::istream& is, int element_size) {
+    bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
+
+    is >> sk->id;
     
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    element_from_stream(sk->second, is, element_size);
+    element_from_stream(sk->privkey, is, element_size);
+    
+    *privkey = sk;
 }
 
-void BES_base::private_key_to_stream(pair<int, element_t> sk, std::ostream& os) {
-    os << sk.first << "\n";
+void BES_base::private_key_to_stream(bes_privkey_t sk, std::ostream& os) {
+    os << sk->id << "\n";
     
-    element_to_stream(sk.second, os);
+    element_to_stream(sk->privkey, os);
 }
 
 
