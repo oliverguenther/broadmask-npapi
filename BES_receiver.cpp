@@ -113,10 +113,7 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
 
 string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
-    for (int i = 0; i < cts->num_receivers; ++i) {
-        cout << cts->receivers[i] << " ";
-    }
-    cout << "\n";
+
     
     
     element_t raw_key;
@@ -124,14 +121,15 @@ string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
     
     unsigned char *derived_key = (unsigned char*) malloc(keylen * sizeof(unsigned char));
-    int derived_keysize = derivate_decryption_key(derived_key, raw_key);
+    derivate_decryption_key(derived_key, raw_key);
 
 	try {
         string plaintext;
 		CFB_Mode< AES >::Decryption d;
-		d.SetKeyWithIV(derived_key, derived_keysize, cts->iv);
+		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES::BLOCKSIZE);
         
-		StringSource s(cts->ct, true, new StreamTransformationFilter(d, new StringSink(plaintext)));
+        string cipher(reinterpret_cast<char*>(cts->ct), cts->ct_length);        
+		StringSource s(cipher, true, new StreamTransformationFilter(d, new StringSink(plaintext)));
         return plaintext;
         
 	}

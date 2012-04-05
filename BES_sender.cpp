@@ -38,7 +38,7 @@ using CryptoPP::AutoSeededRandomPool;
 namespace fs = boost::filesystem;
 using namespace std;
 
-const int kDerivedKeysize = 256;
+const int kDerivedKeysize = 32; // bytes
 
 struct inc_index {
     int cur;
@@ -157,8 +157,8 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
     memcpy(ct->HDR, keypair->HDR, (gbs->A+1) * sizeof(element_t));
     
     // Key derivation
-    unsigned char sym_key[32];
-    derivate_encryption_key(sym_key, 32, keypair->K);
+    unsigned char sym_key[kDerivedKeysize];
+    derivate_encryption_key(sym_key, kDerivedKeysize, keypair->K);
         
     // AES encrpytion    
 
@@ -170,10 +170,10 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
     // 
     try {
 		CFB_Mode< AES >::Encryption enc;
-		enc.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv);
+		enc.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES::BLOCKSIZE);
         string cipher;
 		StringSource(data, true, new StreamTransformationFilter(enc, new StringSink(cipher)));
-        
+                
         ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
         ct->ct_length = cipher.size();
         std::copy(cipher.begin(), cipher.end(), ct->ct);        

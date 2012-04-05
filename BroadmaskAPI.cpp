@@ -356,7 +356,7 @@ std::string BroadmaskAPI::testsuite() {
     
     string rec_message_a = decrypt_b64("foo_receiver_a", ct_data, false);
     
-    cout << rec_message_a << endl;
+    if (message.co
     
     
     storeInstance(sender);
