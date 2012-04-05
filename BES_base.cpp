@@ -73,16 +73,11 @@ void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
     }
     
     cipher->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
-    
-    for (int i = 0; i < AES::BLOCKSIZE; ++i) {
-        is >> cipher->iv[i];
-    }
+    is.read(reinterpret_cast<char*>(cipher->iv), AES::BLOCKSIZE);
     
     cipher->ct = (unsigned char*) malloc(cipher->ct_length * sizeof(unsigned char));
-    for (int i = 0; i < cipher->ct_length; ++i) {
-        is >> cipher->ct[i];
-    }
-    
+    is.read(reinterpret_cast<char*>(cipher->ct), cipher->ct_length);
+
     *ct = cipher;
 
 }
@@ -104,17 +99,16 @@ void BES_base::ciphertext_to_stream(bes_ciphertext_t ct, ostream& os) {
     
     os << "\n";
     
+    // HDR
     for (int i = 0; i < (gbs->A + 1); ++i) {
         element_to_stream(ct->HDR[i], os);
     }
     
-    for (int i = 0; i < AES::BLOCKSIZE; ++i) {
-        os << ct->iv[i];
-    }
+    // IV
+    os.write(reinterpret_cast<char*>(ct->iv), AES::BLOCKSIZE);
     
-    for (int i = 0; i < ct->ct_length; ++i) {
-        os << ct->ct[i];
-    }
+    // CT
+    os.write(reinterpret_cast<char*>(ct->ct), ct->ct_length);
 }
 
 void BES_base::public_key_from_stream(pubkey_t *pubkey_p, std::istream& is, int element_size) {

@@ -128,7 +128,7 @@ string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
 		CFB_Mode< AES >::Decryption d;
 		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES::BLOCKSIZE);
         
-        string cipher(reinterpret_cast<char*>(cts->ct), cts->ct_length);        
+        string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
 		StringSource s(cipher, true, new StreamTransformationFilter(d, new StringSink(plaintext)));
         return plaintext;
         

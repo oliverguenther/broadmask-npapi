@@ -142,8 +142,6 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
             return;
         }
         ct->receivers[i] = id;
-        
-        cout << "r[" << i << "] is " << id << " is " << ct->receivers[i] << endl;
         i++;
     }
     
@@ -166,8 +164,7 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
     ct->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
     AutoSeededRandomPool prng;
 	prng.GenerateBlock(ct->iv, sizeof(ct->iv));
-    
-    // 
+
     try {
 		CFB_Mode< AES >::Encryption enc;
 		enc.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES::BLOCKSIZE);
@@ -176,7 +173,7 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
                 
         ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
         ct->ct_length = cipher.size();
-        std::copy(cipher.begin(), cipher.end(), ct->ct);        
+        memcpy(ct->ct, cipher.c_str(), ct->ct_length);  
         *cts = ct;
         
 	} catch(const CryptoPP::Exception& e) {

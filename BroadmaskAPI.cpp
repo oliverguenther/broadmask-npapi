@@ -138,7 +138,7 @@ BES_base* BroadmaskAPI::load_instance(fs::path path) {
         instance->restore();
         receiving_groups.insert(pair<string, BES_receiver> (instance->groupid(),*instance));
         
-        return instance;
+        return (BES_base*) instance;
     } else if (path.filename() == "bes_sender") {
         BES_sender *instance = new BES_sender;
         
@@ -155,7 +155,7 @@ BES_base* BroadmaskAPI::load_instance(fs::path path) {
             instance->restore();
             sending_groups.insert(pair<string, BES_sender> (instance->groupid(),*instance));
             
-            return instance;
+            return (BES_base*) instance;
         } catch (exception& e) {
             cout << e.what() << endl;
             return NULL;
@@ -306,6 +306,22 @@ BroadmaskPtr BroadmaskAPI::getPlugin()
 }
 
 
+/*
+ * TESTS
+ */
+void gen_random(char *s, const int len) {
+    static const char alphanum[] =
+    "0123456789"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "abcdefghijklmnopqrstuvwxyz";
+    
+    for (int i = 0; i < len; ++i) {
+        s[i] = alphanum[rand() % (sizeof(alphanum) - 1)];
+    }
+    
+    s[len] = 0;
+}
+
 std::string BroadmaskAPI::testsuite() {
     cout << "starting testcase" << endl;
     start_sender_instance("foo", 256);
@@ -346,17 +362,40 @@ std::string BroadmaskAPI::testsuite() {
     
     start_receiver_instance("foo_receiver_a", 64, foo_pub_params, sk_a);
     start_receiver_instance("foo_receiver_b", 64, foo_pub_params, sk_b);
+    start_receiver_instance("foo_receiver_c", 64, foo_pub_params, sk_c);
     
     
     vector<string> s;
     s.push_back("a");
     s.push_back("b");
-    string messsage = "this is a test";
-    string ct_data = encrypt_b64("test", s, messsage, false);
+
     
-    string rec_message_a = decrypt_b64("foo_receiver_a", ct_data, false);
+    int size = 1024;
+    char random[size];
+    string rec_message_a, rec_message_b, rec_message_c, ct_data;
+    boost::timer t, inner;
+    for (int k = 0; k < 50; ++k) {
+        cout << "Encryption Test #" << k << endl;
+        gen_random(random, size-1);
+        string message(random);
+        ct_data = encrypt_b64("test", s, message, false);
+        
+        rec_message_a = decrypt_b64("foo_receiver_a", ct_data, false);
+        rec_message_b = decrypt_b64("foo_receiver_b", ct_data, false);
+        rec_message_c = decrypt_b64("foo_receiver_c", ct_data, false);
+        
+        if (message.compare(rec_message_a) != 0)
+            cout << "Decrypting using Receiver A incorrect: " << endl;
+        if (message.compare(rec_message_b) != 0)
+            cout << "Decrypting using Receiver B incorrect: " << endl;
+        if (message.compare(rec_message_c) == 0)
+            cout << "Decrypting using Receiver C should not have matched" << endl;
+        
+        cout << "Round " << k << ": " << inner.elapsed() << endl;
+        inner.restart();
+    }
     
-    if (message.co
+    cout << "Total time elapsed: " << t.elapsed() << endl;
     
     
     storeInstance(sender);

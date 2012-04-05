@@ -23,9 +23,6 @@ fs::path instance_dir(string &gid) {
     fs::path instance_dir = (broadmask_root() / "instances");
     instance_dir /= gid;
     
-    cout << "Path is " << instance_dir.string() << endl;
-
-    
     if(!fs::is_directory(instance_dir)) {
         fs::create_directories(instance_dir);
     }
@@ -39,7 +36,6 @@ fs::path get_instance_file(string gid, string file) {
     
     instance /= file;
     
-    cout << "Path is " << instance.string() << " - exists? " << fs::is_regular_file(instance) << endl;
     return instance;
     
 }
