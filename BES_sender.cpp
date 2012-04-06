@@ -15,21 +15,21 @@
 #include <cryptopp/hkdf.h>
 #include <cryptopp/sha.h>
 
-#include "filters.h"
+#include <cryptopp/filters.h>
 using CryptoPP::StringSink;
 using CryptoPP::StringSource;
 using CryptoPP::StreamTransformationFilter;
 
-#include "aes.h"
+#include <cryptopp/aes.h>
 using CryptoPP::AES;
 
-#include "modes.h"
+#include <cryptopp/modes.h>
 using CryptoPP::CFB_Mode;
 
-#include "cryptlib.h"
+#include <cryptopp/cryptlib.h>
 using CryptoPP::Exception;
 
-#include "osrng.h"
+#include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
 

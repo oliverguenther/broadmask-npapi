@@ -45,7 +45,7 @@ CBase64::~CBase64()
 void CBase64::Encode(istream &in, stringstream &out) {
 	char buff1[3];
 	char buff2[4];
-	uint8_t i=0, j;
+	unsigned char i=0, j;
 	while(in.readsome(&buff1[i++], 1))
 		if (i==3) {
 			out << encodeCharacterTable[(buff1[0] & 0xfc) >> 2];
@@ -80,7 +80,7 @@ void CBase64::Decode(istringstream &in, stringstream &out)
 {
 	char buff1[4];
 	char buff2[4];
-	uint8_t i=0, j;
+	unsigned char i=0, j;
 
 	while(in.readsome(&buff2[i], 1) && buff2[i] != '=')
 	{
