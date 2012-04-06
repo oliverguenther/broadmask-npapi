@@ -103,16 +103,16 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string public_data
         BES_receiver *instance = new BES_receiver(gid, N, public_data, private_key);
         receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
         
-        // Store BES system
-        instance->store(true);
-        
-        // Store Instance 
-        string classpath(bcfile.string());
-        classpath += "_serialized";
-        
-        std::ofstream ofs(classpath.c_str());
-        boost::archive::text_oarchive oa(ofs);
-        oa << *(instance);  
+//        // Store BES system
+//        instance->store(true);
+//        
+//        // Store Instance 
+//        string classpath(bcfile.string());
+//        classpath += "_serialized";
+//        
+//        std::ofstream ofs(classpath.c_str());
+//        boost::archive::text_oarchive oa(ofs);
+//        oa << *(instance);  
     }
     
 }
@@ -228,7 +228,7 @@ int BroadmaskAPI::add_member(string gid, string id) {
     }
 
     int sys_id = bci->add_member(id);
-    bci->store(true);
+//    bci->store(true);
     return sys_id;
     
 }
@@ -349,53 +349,69 @@ std::string BroadmaskAPI::testsuite() {
      if (sender->member_id("1") != -1)
          cout << "Member '1' was not removed" << endl;
     
-    
-    string foo_pub_params = start_sender_instance("test", 64);
+    boost::timer total;
+    string foo_pub_params = start_sender_instance("test", 256);
+    cout << "Setup phase: " << total.elapsed() << endl;
 
-    add_member("test", "a");
-    add_member("test", "b");
-    add_member("test", "c");
-    
-    string sk_a = get_member_sk("test", "a");
-    string sk_b = get_member_sk("test", "b");
-    string sk_c = get_member_sk("test", "c");
-    
-    start_receiver_instance("foo_receiver_a", 64, foo_pub_params, sk_a);
-    start_receiver_instance("foo_receiver_b", 64, foo_pub_params, sk_b);
-    start_receiver_instance("foo_receiver_c", 64, foo_pub_params, sk_c);
-    
-    
     vector<string> s;
-    s.push_back("a");
-    s.push_back("b");
-
-    
-    int size = 1024;
-    char random[size];
-    string rec_message_a, rec_message_b, rec_message_c, ct_data;
-    boost::timer t, inner;
-    for (int k = 0; k < 50; ++k) {
-        cout << "Encryption Test #" << k << endl;
-        gen_random(random, size-1);
-        string message(random);
-        ct_data = encrypt_b64("test", s, message, false);
+    for (int i = 0; i < 256; ++i) {
+        string user = boost::lexical_cast<string>(i);
+        add_member("test", user);
+        s.push_back(user);
         
-        rec_message_a = decrypt_b64("foo_receiver_a", ct_data, false);
-        rec_message_b = decrypt_b64("foo_receiver_b", ct_data, false);
-        rec_message_c = decrypt_b64("foo_receiver_c", ct_data, false);
-        
-        if (message.compare(rec_message_a) != 0)
-            cout << "Decrypting using Receiver A incorrect: " << endl;
-        if (message.compare(rec_message_b) != 0)
-            cout << "Decrypting using Receiver B incorrect: " << endl;
-        if (message.compare(rec_message_c) == 0)
-            cout << "Decrypting using Receiver C should not have matched" << endl;
-        
-        cout << "Round " << k << ": " << inner.elapsed() << endl;
-        inner.restart();
+        string privkey = get_member_sk("test", user);
+        start_receiver_instance(user, 256, foo_pub_params, privkey);       
     }
     
-    cout << "Total time elapsed: " << t.elapsed() << endl;
+    
+    int size = 1000000;
+    char *random = new char[size];
+    string rec_message_j;
+    string ct_data;
+    for (int i = 2; i <= 256; i*=2) {
+        vector<string> recipients;
+        for (int j = 0; j < i; ++j) {
+            recipients.push_back(s[j]);
+        }
+        cout << "System Test with " << i << "/256 recipients" << endl;
+        boost::timer round, step;
+        
+        gen_random(random, size-1);
+        string message(random);
+        step.restart();
+        ct_data = encrypt_b64("test", recipients, message, false);
+        
+        cout << "(ENC): " << i << " " << step.elapsed() << endl;
+        step.restart();
+        
+        cout << "(DEC): " << i << " ";
+        for (int j = 0; j < i; ++j) {
+            rec_message_j = decrypt_b64(s[j], ct_data, false);        
+            if (message.compare(rec_message_j) != 0)
+                cout << "Decrypting using Receiver " << s[j] << " incorrect: " << endl;
+            
+//            cout << "Decrypt [receiver " << s[j] << "]: " << step.elapsed() << endl;
+            cout << step.elapsed() << " ";
+            step.restart();
+        }
+        
+        for (int j = i; j < 256; ++j) {
+            step.restart();
+            rec_message_j = decrypt_b64(s[j], ct_data, false);    
+            cout << step.elapsed() << " ";
+            if (message.compare(rec_message_j) == 0) {
+                cout << "Decrypting using Receiver " << s[j] << " should have been unsuccessful!: " << endl;
+            }
+        }
+        cout << endl;
+        
+        cout << "Round " << i << ": " << round.elapsed() << endl;
+        round.restart();
+    }
+    delete[] random;
+                          
+    
+    cout << "Total time elapsed: " << total.elapsed() << endl;
     
     
     storeInstance(sender);
