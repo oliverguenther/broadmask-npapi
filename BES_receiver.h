@@ -55,7 +55,7 @@ private:
     
     int keylen;
 
-    int derivate_decryption_key(unsigned char *key, element_t key);
+    int derivate_decryption_key(unsigned char *key, element_t raw_key);
     
     
     //
