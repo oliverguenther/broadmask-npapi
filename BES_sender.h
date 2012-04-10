@@ -31,7 +31,7 @@ public:
      * @param S receivers of the message
      * @param data binary data to encrypt
      */
-    void bes_encrypt(bes_ciphertext_t *cts, std::vector<std::string>& S, std::string& data);
+    void bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& S, std::string& data);
     
     
     /** 

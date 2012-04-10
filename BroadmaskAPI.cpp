@@ -14,6 +14,7 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/filesystem/fstream.hpp> 
 #include <boost/static_assert.hpp>
+#include <boost/thread.hpp>
 
 
 
@@ -25,6 +26,23 @@
 #include "BitmapWrapper.h"
 
 #include "utils.h"
+
+#include "filters.h"
+using CryptoPP::StringSink;
+using CryptoPP::StringSource;
+using CryptoPP::StreamTransformationFilter;
+
+#include "aes.h"
+using CryptoPP::AES;
+
+#include "modes.h"
+using CryptoPP::CFB_Mode;
+
+#include "cryptlib.h"
+using CryptoPP::Exception;
+
+#include "osrng.h"
+using CryptoPP::AutoSeededRandomPool;
 
 using namespace std;
 namespace fs = boost::filesystem;
@@ -54,13 +72,15 @@ BES_receiver* BroadmaskAPI::get_receiver_instance(string gid) {
 string BroadmaskAPI::start_sender_instance(string gid, int N) {
     map<string,BES_sender>::iterator it = sending_groups.find(gid);
     fs::path bcfile = get_instance_file(gid, "bes_sender");
-    ostringstream params;
+    stringstream params;
 
     
     if (it != sending_groups.end()) {
         cout << "Sending Instance " << gid << " is already loaded" << endl;
         it->second.public_params_to_stream(params);
-        return params.str();
+        stringstream b64os;
+        b64.Encode(params, b64os);
+        return b64os.str();
     }
     
     BES_sender *instance;
@@ -87,11 +107,13 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
         return "";
     }
     instance->public_params_to_stream(params);    
-    return params.str();
+    stringstream b64os;
+    b64.Encode(params, b64os);
+    return b64os.str();
     
 }
 
-void BroadmaskAPI::start_receiver_instance(string gid, int N, string public_data, string private_key) {
+void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64, string private_key) {
     map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
     fs::path bcfile = get_instance_file(gid, "bes_receiver");
     
@@ -99,20 +121,24 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string public_data
         cout << "Receiving Instance " << gid << " is already loaded" << endl;
     } else if (fs::is_regular_file(bcfile)) {
         load_instance(bcfile);
-    } else {        
-        BES_receiver *instance = new BES_receiver(gid, N, public_data, private_key);
+    } else {
+        istringstream b64params(pubdata_b64);
+        stringstream public_params;
+        b64.Decode(b64params, public_params);
+        
+        BES_receiver *instance = new BES_receiver(gid, N, public_params.str(), private_key);
         receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
         
-//        // Store BES system
-//        instance->store(true);
-//        
-//        // Store Instance 
-//        string classpath(bcfile.string());
-//        classpath += "_serialized";
-//        
-//        std::ofstream ofs(classpath.c_str());
-//        boost::archive::text_oarchive oa(ofs);
-//        oa << *(instance);  
+        // Store BES system
+        instance->store(true);
+        
+        // Store Instance 
+        string classpath(bcfile.string());
+        classpath += "_serialized";
+        
+        std::ofstream ofs(classpath.c_str());
+        boost::archive::text_oarchive oa(ofs);
+        oa << *(instance);  
     }
     
 }
@@ -205,7 +231,7 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
         return "";
     }
     
-    bes_privkey_t sk;
+    bes_privkey_t sk = NULL;
     bci->get_private_key(&sk, id);
     if (!sk) {
         return "";
@@ -213,8 +239,6 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
     
     ostringstream oss;
     bci->private_key_to_stream(sk, oss);
-    
-    element_clear(sk->privkey);
     
     return oss.str();
     
@@ -241,7 +265,7 @@ void BroadmaskAPI::remove_member(std::string gid, std::string id) {
     }
 }
 
-string BroadmaskAPI::encrypt_b64(std::string gid, std::vector<std::string> receivers, std::string data, bool image) {
+string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
     BES_sender *bci = get_sender_instance(gid);
     
     if (!bci) {
@@ -252,17 +276,79 @@ string BroadmaskAPI::encrypt_b64(std::string gid, std::vector<std::string> recei
     bes_ciphertext_t ct;
     bci->bes_encrypt(&ct, receivers, data);
     
-    // Encode to Base64
     stringstream ctos, b64os;
     bci->ciphertext_to_stream(ct, ctos);    
+    // Encode to Base64
     b64.Encode(ctos, b64os);
     
     if (image) {
         vector<unsigned char> b64data, b64padded;
         vector_from_stream(b64data, b64os);
         b64padded = encodeImage(b64data);
-    }        
+        b64os.clear();
+        ctos.clear();
+        ctos.str(std::string(b64padded.begin(), b64padded.end()));
+        // Encode image again
+        b64.Encode(ctos, b64os);
+
+    }
     return b64os.str();
+}
+
+string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
+    unsigned char key[32];
+    unsigned char iv[AES::BLOCKSIZE];
+    
+    AutoSeededRandomPool prng;
+    
+	prng.GenerateBlock(key, sizeof(key));
+	prng.GenerateBlock(iv, sizeof(iv));
+    
+    try {
+		CFB_Mode< AES >::Encryption enc;
+		enc.SetKeyWithIV(key, sizeof(key), iv, AES::BLOCKSIZE);
+        string cipher;
+		StringSource(data, true, new StreamTransformationFilter(enc, new StringSink(cipher)));
+        
+        stringstream json;
+        stringstream b64os;
+        json << "{";
+        json << "\"iv\": \"";
+        for (int i = 0; i < AES::BLOCKSIZE; ++i) {
+            b64os << iv[i];
+        }
+        b64.Encode(b64os, json);
+        b64os.clear();
+        b64os.str(std::string());
+        json << "\",\"key\": \"";
+        for (int i = 0; i < 32; ++i) {
+            b64os << key[i];
+        }
+        b64.Encode(b64os, json);
+        json << "\", \"ct\": \"";
+        b64os.clear();
+        b64os.str(cipher);
+        b64.Encode(b64os, json);
+        json << "\"}";
+        
+        
+        return json.str();
+
+	} catch(const CryptoPP::Exception& e) {
+		cerr << e.what() << endl;
+	}
+    
+//    if (image) {
+//        vector<unsigned char> b64data, b64padded;
+//        vector_from_stream(b64data, b64os);
+//        b64padded = encodeImage(b64data);
+//        b64os.clear();
+//        ctos.clear();
+//        ctos.str(std::string(b64padded.begin(), b64padded.end()));
+//        // Encode image again
+//        b64.Encode(ctos, b64os);
+//        
+//    }
 }
  
 string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
@@ -322,7 +408,14 @@ void gen_random(char *s, const int len) {
     s[len] = 0;
 }
 
-std::string BroadmaskAPI::testsuite() {
+
+void BroadmaskAPI::test(const FB::JSObjectPtr &callback) {
+    boost::thread t(boost::bind(&BroadmaskAPI::testsuite,
+                                this, callback));
+}
+
+
+void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     cout << "starting testcase" << endl;
     start_sender_instance("foo", 256);
 
@@ -364,7 +457,7 @@ std::string BroadmaskAPI::testsuite() {
     }
     
     
-    int size = 1000000;
+    int size = 1000;
     char *random = new char[size];
     string rec_message_j;
     string ct_data;
@@ -422,6 +515,6 @@ std::string BroadmaskAPI::testsuite() {
         cout << "sender instance not deleted" << endl;
     
     
-    return "";
-    
+    callback->InvokeAsync("", FB::variant_list_of("it worked"));
+
 }

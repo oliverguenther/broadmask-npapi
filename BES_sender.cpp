@@ -110,8 +110,7 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
     sk->id = id;
     memcpy(sk->privkey, sys->d_i[id], sizeof(element_t));
-    
-    *sk_ptr = sk;
+    sk_ptr = &sk;
 }
 
 
@@ -124,7 +123,7 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 }
     
 
-void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std::string& data) {
+void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<string>& S, std::string& data) {
     
     bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
     
@@ -134,7 +133,7 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, std::vector<string>& S, std:
     ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
         
     int i = 0;
-    for (vector<string>::iterator it = S.begin(); it != S.end(); ++it) {
+    for (vector<string>::const_iterator it = S.begin(); it != S.end(); ++it) {
         int id = member_id(*it);
         if (id == -1) {
             cout << "Member " << *it << " is not member of this group" << endl;

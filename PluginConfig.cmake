@@ -33,7 +33,7 @@ set(MOZILLA_PLUGINID "oliverguenther.de/Broadmask")
 
 # strings
 set(FBSTRING_CompanyName "oliverguenther")
-set(FBSTRING_FileDescription "PBC library wrapper for bce")
+set(FBSTRING_FileDescription "Content Hiding in Online Social Networks using Broadcast Encryption")
 set(FBSTRING_PLUGIN_VERSION "1.0.0.0")
 set(FBSTRING_LegalCopyright "Copyright 2012 oliverguenther")
 set(FBSTRING_PluginFileName "np${PLUGIN_NAME}.dll")
@@ -61,3 +61,4 @@ set(FBMAC_USE_INVALIDATINGCOREANIMATION 0)
 
 add_boost_library(filesystem)
 add_boost_library(serialization)
+add_boost_library(thread)

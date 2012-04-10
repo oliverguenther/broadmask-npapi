@@ -48,8 +48,8 @@ public:
         registerMethod("start_receiver_instance", make_method(this, &BroadmaskAPI::start_receiver_instance));
         registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
         registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
-        registerMethod("testsuite", make_method(this, &BroadmaskAPI::testsuite));
-
+        registerMethod("test", make_method(this, &BroadmaskAPI::test));
+        registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
     }
 
     ///////////////////////////////////////////////////////////////////////////////
@@ -71,6 +71,9 @@ public:
      * @return [N,PK,HDR] as base64 encoded binary to be used on receiving side
      */
     std::string start_sender_instance(std::string gid, int N);
+    
+    std::string sk_encrypt_b64(std::string data, bool image);
+
     
     /**
      * @fn BroadmaskAPI::start_receiver_instance
@@ -101,7 +104,7 @@ public:
      *
      * @return encrypted binary data, base64 encoded
      */
-    std::string encrypt_b64(std::string gid, std::vector<std::string> receivers, std::string data, bool image);
+    std::string encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image);
     
     /** 
      * @fn BroadmaskAPI::decrypt_b64
@@ -116,7 +119,8 @@ public:
      */    
     std::string decrypt_b64(std::string gid, std::string ct_data, bool image);
     
-    std::string testsuite();
+    void test(const FB::JSObjectPtr &callback);
+    void testsuite(const FB::JSObjectPtr &callback);
     
     
 private:

@@ -2,6 +2,8 @@
 #include <cstring>
 #include <cmath>
 #include <iostream>
+#include <fstream>
+#include <iomanip>
 #include <sstream>
 
 
@@ -80,18 +82,19 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 		bmp.push_back(0);
 	}
 
-	cout << "Data:" << endl;
-	string foo(data.begin(), data.end());
-	cout << foo;
-
-	cout << endl;
-
-	cout << "Wrapped:" << endl;
-	for (size_t i = 0; i < bmp.size(); i++) {
-		cout << bmp[i];
-	}
-
-
+//	cout << "Wrapped:" << endl;
+//	for (size_t i = 0; i < bmp.size(); i++) {
+//		cout << hex << setfill('0') << setw(2) << (int) bmp[i];
+//	}
+//    
+//    cout << "****" << endl;
+//
+//    ofstream os;
+//    os.open("/Users/oliver/Desktop/encoded.bmp", ios::binary);
+//    ostreambuf_iterator<char> os_it(os);
+//    copy (bmp.begin(), bmp.end(), os_it);
+//    os.close();
+    
 	return bmp;
 }
 
@@ -146,15 +149,15 @@ vector<unsigned char> decodeImage(vector<unsigned char> data) {
 	cout << "Embedded total size : " << payload << " -> " << out.size() << endl;
 	cout << "filesize : " << data.size() << endl;
 
-	cout << "Wrapped:" << endl;
-	for (size_t i = 0; i < data.size(); ++i) {
-		cout << data[i];
-	}
-
-	cout << endl;
-
-	cout << "Unwrapped:" << endl;
-	cout << t << endl;
+//	cout << "Wrapped:" << endl;
+//	for (size_t i = 0; i < data.size(); ++i) {
+//		cout << data[i];
+//	}
+//
+//	cout << endl;
+//
+//	cout << "Unwrapped:" << endl;
+//	cout << t << endl;
 	return out;
 
 }
