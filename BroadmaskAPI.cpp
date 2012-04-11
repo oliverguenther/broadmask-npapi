@@ -78,9 +78,7 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
     if (it != sending_groups.end()) {
         cout << "Sending Instance " << gid << " is already loaded" << endl;
         it->second.public_params_to_stream(params);
-        stringstream b64os;
-        b64.Encode(params, b64os);
-        return b64os.str();
+        return base64_encode(params.str());
     }
     
     BES_sender *instance;
@@ -107,9 +105,7 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
         return "";
     }
     instance->public_params_to_stream(params);    
-    stringstream b64os;
-    b64.Encode(params, b64os);
-    return b64os.str();
+    return base64_encode(params.str());
     
 }
 
@@ -122,13 +118,10 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64
     } else if (fs::is_regular_file(bcfile)) {
         load_instance(bcfile);
     } else {
-        istringstream b64params(pubdata_b64);
-        istringstream b64privparams(private_key_b64);
-        stringstream public_params, private_params;
-        b64.Decode(b64params, public_params);
-        b64.Decode(b64privparams, private_params);
+        string public_params = base64_decode(pubdata_b64);
+        string private_key = base64_decode(private_key_b64);
         
-        BES_receiver *instance = new BES_receiver(gid, N, public_params.str(), private_params.str());
+        BES_receiver *instance = new BES_receiver(gid, N, public_params, private_key);
         receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
         
         // Store BES system
@@ -239,10 +232,9 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
         return "";
     }
     
-    stringstream oss, b64os;
+    stringstream oss;
     bci->private_key_to_stream(sk, oss);
-    b64.Encode(oss, b64os);
-    return b64os.str();
+    return base64_encode(oss.str());
     
 }
 
@@ -278,23 +270,25 @@ string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>
     bes_ciphertext_t ct;
     bci->bes_encrypt(&ct, receivers, data);
     
-    stringstream ctos, b64os;
+    stringstream ctos;
+    string ct_b64;
     bci->ciphertext_to_stream(ct, ctos);    
     // Encode to Base64
-    b64.Encode(ctos, b64os);
+    ct_b64 = base64_encode(ctos.str());
     
     if (image) {
         vector<unsigned char> b64data, b64padded;
-        vector_from_stream(b64data, b64os);
+        vector_from_string(b64data, ct_b64);
         b64padded = encodeImage(b64data);
-        b64os.clear();
-        ctos.clear();
-        ctos.str(std::string(b64padded.begin(), b64padded.end()));
-        // Encode image again
-        b64.Encode(ctos, b64os);
+        ofstream os;
+        os.open("/Users/oliver/Desktop/encoded.bmp", ios::binary);
+        ostreambuf_iterator<char> os_it(os);
+        copy (b64padded.begin(), b64padded.end(), os_it);
+        os.close();
+        return base64_encode(b64padded);
 
     }
-    return b64os.str();
+    return ct_b64;
 }
 
 string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
@@ -319,18 +313,16 @@ string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
         for (int i = 0; i < AES::BLOCKSIZE; ++i) {
             b64os << iv[i];
         }
-        b64.Encode(b64os, json);
+        json << base64_encode(b64os.str());
         b64os.clear();
         b64os.str(std::string());
         json << "\",\"key\": \"";
         for (int i = 0; i < 32; ++i) {
             b64os << key[i];
         }
-        b64.Encode(b64os, json);
+        json << base64_encode(b64os.str());
         json << "\", \"ct\": \"";
-        b64os.clear();
-        b64os.str(cipher);
-        b64.Encode(b64os, json);
+        json << base64_encode(cipher);
         json << "\"}";
         
         
@@ -338,19 +330,8 @@ string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
 
 	} catch(const CryptoPP::Exception& e) {
 		cerr << e.what() << endl;
+        return "{}";
 	}
-    
-//    if (image) {
-//        vector<unsigned char> b64data, b64padded;
-//        vector_from_stream(b64data, b64os);
-//        b64padded = encodeImage(b64data);
-//        b64os.clear();
-//        ctos.clear();
-//        ctos.str(std::string(b64padded.begin(), b64padded.end()));
-//        // Encode image again
-//        b64.Encode(ctos, b64os);
-//        
-//    }
 }
  
 string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
@@ -361,20 +342,16 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
         return "";
     }
     
+    string ct_str = ct_data;
     if (image) {
-        stringstream b64is(ct_data);
         vector<unsigned char> b64padded,b64data;
-        vector_from_stream(b64padded, b64is);
+        vector_from_string(b64padded, ct_data);
         b64data = decodeImage(b64data);
-        ct_data = string(b64data.begin(), b64data.end());
+        ct_str = string(b64data.begin(), b64data.end());
         
     }
-    istringstream b64is(ct_data);
-
-    
-    // Decode from Base64
-    stringstream ctss;    
-    b64.Decode(b64is, ctss);
+    ct_str = base64_decode(ct_str);
+    stringstream ctss(ct_str);
             
     bes_ciphertext_t ct;
     bci->ciphertext_from_stream(&ct, ctss);

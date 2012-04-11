@@ -1,5 +1,6 @@
 #include "utils.h"
 #include <iostream>
+#include <sstream>
 #include <utility>
 
 namespace fs = boost::filesystem;
@@ -77,4 +78,9 @@ void vector_from_stream(std::vector<unsigned char>& v, std::istream& is) {
     while (is >> el) {
         v.push_back(el);
     }
+}
+
+void vector_from_string(std::vector<unsigned char>& v, std::string s) {
+    stringstream ss(s);
+    vector_from_stream(v,ss);
 }

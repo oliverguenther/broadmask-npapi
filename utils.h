@@ -24,5 +24,6 @@ std::pair< std::vector<std::string>, std::vector<std::string> > stored_instances
 
 
 void vector_from_stream(std::vector<unsigned char>& v, std::istream& is);
+void vector_from_string(std::vector<unsigned char>& v, std::string s);
 
 #endif

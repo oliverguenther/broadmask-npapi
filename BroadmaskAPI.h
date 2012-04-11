@@ -130,9 +130,6 @@ private:
     std::map<std::string, BES_sender> sending_groups;
     std::map<std::string, BES_receiver> receiving_groups;
     
-    CBase64 b64;
-    
-    
     BES_base* load_instance(boost::filesystem::path p);
     template <class T>
     void storeInstance(T *bci);

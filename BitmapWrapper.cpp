@@ -89,11 +89,7 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 //    
 //    cout << "****" << endl;
 //
-//    ofstream os;
-//    os.open("/Users/oliver/Desktop/encoded.bmp", ios::binary);
-//    ostreambuf_iterator<char> os_it(os);
-//    copy (bmp.begin(), bmp.end(), os_it);
-//    os.close();
+
     
 	return bmp;
 }
