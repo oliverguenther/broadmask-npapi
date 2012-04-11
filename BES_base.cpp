@@ -153,6 +153,7 @@ void BES_base::public_key_to_stream(pubkey_t PK, std::ostream& os) {
 }
 
 void BES_base::private_key_from_stream(bes_privkey_t *privkey, std::istream& is, int element_size) {
+    
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
 
     is >> sk->id;

@@ -110,7 +110,7 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
     sk->id = id;
     memcpy(sk->privkey, sys->d_i[id], sizeof(element_t));
-    sk_ptr = &sk;
+    *sk_ptr = sk;
 }
 
 

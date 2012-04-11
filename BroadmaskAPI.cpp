@@ -113,7 +113,7 @@ string BroadmaskAPI::start_sender_instance(string gid, int N) {
     
 }
 
-void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64, string private_key) {
+void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64, string private_key_b64) {
     map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
     fs::path bcfile = get_instance_file(gid, "bes_receiver");
     
@@ -123,10 +123,12 @@ void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64
         load_instance(bcfile);
     } else {
         istringstream b64params(pubdata_b64);
-        stringstream public_params;
+        istringstream b64privparams(private_key_b64);
+        stringstream public_params, private_params;
         b64.Decode(b64params, public_params);
+        b64.Decode(b64privparams, private_params);
         
-        BES_receiver *instance = new BES_receiver(gid, N, public_params.str(), private_key);
+        BES_receiver *instance = new BES_receiver(gid, N, public_params.str(), private_params.str());
         receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
         
         // Store BES system
@@ -237,10 +239,10 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
         return "";
     }
     
-    ostringstream oss;
+    stringstream oss, b64os;
     bci->private_key_to_stream(sk, oss);
-    
-    return oss.str();
+    b64.Encode(oss, b64os);
+    return b64os.str();
     
 }
 
@@ -373,7 +375,7 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
     // Decode from Base64
     stringstream ctss;    
     b64.Decode(b64is, ctss);
-        
+            
     bes_ciphertext_t ct;
     bci->ciphertext_from_stream(&ct, ctss);
     
@@ -457,7 +459,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     }
     
     
-    int size = 1000;
+    int size = 100000;
     char *random = new char[size];
     string rec_message_j;
     string ct_data;

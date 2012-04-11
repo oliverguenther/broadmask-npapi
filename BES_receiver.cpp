@@ -65,7 +65,7 @@ BES_receiver::BES_receiver(string groupid, int N, string public_data, string pri
     public_key_from_stream(&PK, public_params, element_size);
     
     // Read private key
-    istringstream skss(private_key);
+    istringstream skss(private_key);    
     
     private_key_from_stream(&SK, skss, element_size);
 }
@@ -101,10 +101,11 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
                        salt, 53, // Salt
                        NULL, 0 // context information
                        );
-        
+        delete[] buf;
         return keysize;
         
     } catch (const CryptoPP::Exception& e) {
+        delete[] buf;
         cerr << e.what() << endl;
         return 0;
     }
@@ -130,10 +131,12 @@ string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
         
         string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
 		StringSource s(cipher, true, new StreamTransformationFilter(d, new StringSink(plaintext)));
+        delete[] derived_key;
         return plaintext;
         
 	}
 	catch(const CryptoPP::Exception& e) {
+        delete[] derived_key;
 		cerr << e.what() << endl;
         return "";
         
