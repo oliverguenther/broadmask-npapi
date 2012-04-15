@@ -54,9 +54,8 @@ public:
      * @brief Adds a PGP public key id for user id
      * @param user_id the user id the keyid belongs to
      * @param key_id the key_id to add
-     * @return JS object with op results
      */
-    FB::VariantMap setPGPKey(std::string user_id, std::string keyid);
+    void setPGPKey(std::string user_id, std::string keyid);
     
     
     /**
@@ -76,6 +75,12 @@ private:
     
     // GPGME helpers
     
+    // Create new context
+    gpgme_ctx_t create_gpg_context();
+    std::string get_validity_str (gpgme_validity_t& v);
+    std::string PGPStorageWrapper::get_status_str (gpgme_error_t& e);
+
+
     
     
     // GPGME error helpers

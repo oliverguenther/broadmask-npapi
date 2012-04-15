@@ -122,8 +122,11 @@ public:
     void testsuite(const FB::JSObjectPtr &callback);
     
     
+    void gpg_store_keyid(std::string user_id, std::string key_id);
+    FB::VariantMap gpg_get_keyid(std::string user_id);
     FB::VariantMap gpg_encrypt_for(std::string data, std::string user_id);
     FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id);
+    FB::VariantMap gpg_decrypt(std::string data);
 
     
     

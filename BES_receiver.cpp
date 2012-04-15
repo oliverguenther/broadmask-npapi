@@ -38,7 +38,7 @@ using CryptoPP::AES;
 using CryptoPP::CFB_Mode;
 
 // hkdf scheme, rfc5869
-#include <cryptopp/hkdf.h>
+#include "hkdf.h"
 using CryptoPP::HMACKeyDerivationFunction;
 #include <cryptopp/sha.h>
 using CryptoPP::SHA256;

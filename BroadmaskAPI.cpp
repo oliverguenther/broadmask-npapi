@@ -27,21 +27,21 @@
 
 #include "utils.h"
 
-#include "filters.h"
+#include <cryptopp/filters.h>
 using CryptoPP::StringSink;
 using CryptoPP::StringSource;
 using CryptoPP::StreamTransformationFilter;
 
-#include "aes.h"
+#include <cryptopp/aes.h>
 using CryptoPP::AES;
 
-#include "modes.h"
+#include <cryptopp/modes.h>
 using CryptoPP::CFB_Mode;
 
-#include "cryptlib.h"
+#include <cryptopp/cryptlib.h>
 using CryptoPP::Exception;
 
-#include "osrng.h"
+#include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
 using namespace std;
@@ -363,12 +363,35 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
  * GPG API
  */
 
+void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
+    gpg->setPGPKey(user_id, key_id);
+    // store wrapper again
+    fs::path gpgfile = broadmask_root() / "pgpstorage";
+    
+    std::ofstream ofs(gpgfile.string().c_str(), std::ios::out);
+    boost::archive::text_oarchive oa(ofs);
+    
+    try {
+        oa << *gpg;
+    } catch (exception& e) {
+        cout << e.what() << endl;
+    }
+}
+
+FB::VariantMap BroadmaskAPI::gpg_get_keyid(std::string user_id) {
+    return gpg->getPGPKey(user_id);
+}
+
 FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
     return gpg->encrypt_for(data, user_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
     return gpg->encrypt_with(data, key_id);
+}
+
+FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
+    return gpg->decrypt(data);
 }
 
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string keyid, string sysid) {
@@ -413,8 +436,11 @@ m_plugin(plugin), m_host(host) {
     registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
     registerMethod("test", make_method(this, &BroadmaskAPI::test));
     registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
+    registerMethod("gpg_store_keyid", make_method(this, &BroadmaskAPI::gpg_store_keyid));
+    registerMethod("gpg_get_keyid", make_method(this, &BroadmaskAPI::gpg_get_keyid));
     registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
     registerMethod("gpg_encrypt_with", make_method(this, &BroadmaskAPI::gpg_encrypt_with));
+    registerMethod("gpg_decrypt", make_method(this, &BroadmaskAPI::gpg_decrypt));
     
     // Restart PGP Wrapper
     gpg = new PGPStorageWrapper();

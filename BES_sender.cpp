@@ -12,7 +12,7 @@
 
 // hkdf scheme, rfc5869
 #include <cryptopp/hmac.h>
-#include <cryptopp/hkdf.h>
+#include "hkdf.h"
 #include <cryptopp/sha.h>
 
 #include <cryptopp/filters.h>
