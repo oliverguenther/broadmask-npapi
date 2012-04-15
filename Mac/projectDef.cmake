@@ -48,4 +48,5 @@ target_link_libraries(${PROJECT_NAME}
     -lgmp
     -lpbc
 	-lcryptopp
+	-lgpgme
     )

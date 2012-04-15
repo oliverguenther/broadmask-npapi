@@ -9,12 +9,17 @@
 #include <map>
 #include <boost/weak_ptr.hpp>
 #include "JSAPIAuto.h"
+#include "JSObject.h"
+#include "variant_map.h"
+
 #include "BrowserHost.h"
 #include "Broadmask.h"
 #include "BES_base.h"
 #include "BES_sender.h"
 #include "BES_receiver.h"
 #include "Base64.h"
+#include "PGPStorageWrapper.h"
+
 
 #include <boost/filesystem/path.hpp>
 
@@ -27,30 +32,7 @@
 class BroadmaskAPI : public FB::JSAPIAuto
 {
 public:
-    ////////////////////////////////////////////////////////////////////////////
-    /// @fn BroadmaskAPI::BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr host)
-    ///
-    /// @brief  Constructor for your JSAPI object.
-    ///         You should register your methods, properties, and events
-    ///         that should be accessible to Javascript from here.
-    ///
-    /// @see FB::JSAPIAuto::registerMethod
-    /// @see FB::JSAPIAuto::registerProperty
-    /// @see FB::JSAPIAuto::registerEvent
-    ////////////////////////////////////////////////////////////////////////////
-    BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host) :
-        m_plugin(plugin), m_host(host)
-    {
-        registerMethod("start_sender_instance", make_method(this, &BroadmaskAPI::start_sender_instance));
-        registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
-        registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
-        registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        
-        registerMethod("start_receiver_instance", make_method(this, &BroadmaskAPI::start_receiver_instance));
-        registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
-        registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
-        registerMethod("test", make_method(this, &BroadmaskAPI::test));
-        registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
-    }
+    BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host);
 
     ///////////////////////////////////////////////////////////////////////////////
     /// @fn BroadmaskAPI::~BroadmaskAPI()
@@ -87,7 +69,24 @@ public:
      */
     void restore_instances();
     
+    /**
+     * @fn BroadmaskAPI::get_member_sk
+     * @brief Tries to retrieve member key for user with sysid
+     * @param gid Group instance id
+     * @param sysid User id
+     * @return base64 encoded private_key_t
+     */
     std::string get_member_sk(std::string gid, std::string sysid);
+    
+    /**
+     * @fn BroadmaskAPI::get_member_sk_gpg
+     * @brief Tries to retrieve member key for user with sysid
+     * @param gid Group instance id
+     * @param keyid fingerprint/key id for gpg key to encrypt for
+     * @param sysid User id
+     * @return gpg encrypted private_key_t with keyid
+     */
+    FB::VariantMap get_member_sk_gpg(std::string gid, std::string keyid, std::string sysid);
     
     int add_member(std::string gid, std::string sysid);
     
@@ -123,6 +122,11 @@ public:
     void testsuite(const FB::JSObjectPtr &callback);
     
     
+    FB::VariantMap gpg_encrypt_for(std::string data, std::string user_id);
+    FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id);
+
+    
+    
 private:
     BroadmaskWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;
@@ -136,6 +140,8 @@ private:
 
     BES_sender* get_sender_instance(std::string gid);
     BES_receiver* get_receiver_instance(std::string gid);
+    
+    PGPStorageWrapper *gpg;
 
 };
 

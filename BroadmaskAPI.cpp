@@ -359,6 +359,26 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
     return bci->bes_decrypt(ct);
 }
 
+/*
+ * GPG API
+ */
+
+FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
+    return gpg->encrypt_for(data, user_id);
+}
+
+FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
+    return gpg->encrypt_with(data, key_id);
+}
+
+FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string keyid, string sysid) {
+    FB::VariantMap result;
+    result["error"] = "Not implemented";
+    
+    return result;
+}
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 BroadmaskPtr BroadmaskAPI::getPlugin()
@@ -368,6 +388,48 @@ BroadmaskPtr BroadmaskAPI::getPlugin()
 		throw FB::script_error("The plugin is invalid");
 	}
 	return plugin;
+}
+
+////////////////////////////////////////////////////////////////////////////
+/// @fn BroadmaskAPI::BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr host)
+///
+/// @brief  Constructor for your JSAPI object.
+///         You should register your methods, properties, and events
+///         that should be accessible to Javascript from here.
+///
+/// @see FB::JSAPIAuto::registerMethod
+/// @see FB::JSAPIAuto::registerProperty
+/// @see FB::JSAPIAuto::registerEvent
+////////////////////////////////////////////////////////////////////////////
+BroadmaskAPI::BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host) :
+m_plugin(plugin), m_host(host) {
+    registerMethod("start_sender_instance", make_method(this, &BroadmaskAPI::start_sender_instance));
+    registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
+    registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
+    registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        
+    registerMethod("get_member_sk_gpg", make_method(this, &BroadmaskAPI::get_member_sk_gpg));
+    registerMethod("start_receiver_instance", make_method(this, &BroadmaskAPI::start_receiver_instance));
+    registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
+    registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
+    registerMethod("test", make_method(this, &BroadmaskAPI::test));
+    registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
+    registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
+    registerMethod("gpg_encrypt_with", make_method(this, &BroadmaskAPI::gpg_encrypt_with));
+    
+    // Restart PGP Wrapper
+    gpg = new PGPStorageWrapper();
+    fs::path gpgfile = broadmask_root() / "pgpstorage";
+    if (fs::is_regular_file(gpgfile)) {
+        std::ifstream ifs(gpgfile.string().c_str(), std::ios::in);
+        boost::archive::text_iarchive ia(ifs);
+        
+        try {
+            ia >> *gpg;
+        } catch (exception& e) {
+            cout << e.what() << endl;
+        }
+    }
+    
 }
 
 

@@ -11,7 +11,7 @@
 using namespace std;
 
 
-boost::filesystem::path broadmask_root(std::string& gid);
+boost::filesystem::path broadmask_root();
 boost::filesystem::path instance_dir(std::string &gid);  
 
 /**

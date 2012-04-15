@@ -45,7 +45,6 @@ set(FBSTRING_MIMEType "application/x-broadmask")
 # Uncomment this next line if you're not planning on your plugin doing
 # any drawing:
 
-
 set (FB_GUI_DISABLED 1)
 
 # Mac plugin settings. If your plugin does not draw, set these all to 0
@@ -62,3 +61,4 @@ set(FBMAC_USE_INVALIDATINGCOREANIMATION 0)
 add_boost_library(filesystem)
 add_boost_library(serialization)
 add_boost_library(thread)
+add_firebreath_library(jsoncpp)
