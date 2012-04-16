@@ -80,13 +80,13 @@ public:
     
     /**
      * @fn BroadmaskAPI::get_member_sk_gpg
-     * @brief Tries to retrieve member key for user with sysid
+     * @brief Tries to retrieve member key for user with sysid. user with sysid needs
+     * to be registered a PGP key using gpg_store_keyid
      * @param gid Group instance id
-     * @param keyid fingerprint/key id for gpg key to encrypt for
      * @param sysid User id
      * @return gpg encrypted private_key_t with keyid
      */
-    FB::VariantMap get_member_sk_gpg(std::string gid, std::string keyid, std::string sysid);
+    FB::VariantMap get_member_sk_gpg(std::string gid, std::string sysid);
     
     int add_member(std::string gid, std::string sysid);
     
@@ -122,11 +122,54 @@ public:
     void testsuite(const FB::JSObjectPtr &callback);
     
     
+    /**
+     * @fn BroadmaskAPI::gpg_store_keyid
+     * @brief Stores a PGP key id or fingerprint for the user user_id
+     * @param user_id 
+     * @param key_id PGP key fingerprint/keyid
+     */
     void gpg_store_keyid(std::string user_id, std::string key_id);
+    
+    /**
+     * @fn BroadmaskAPI::gpg_get_keyid
+     * @brief Tries to retrieve a PGP key id or fingerprint for the user user_id
+     * @param user_id 
+     * return FB::VariantMap containing user key or error if unsuccessful
+     */
     FB::VariantMap gpg_get_keyid(std::string user_id);
+    
+    /**
+     * @fn BroadmaskAPI::gpg_encrypt_for
+     * @brief Encrypt data for the registered key belonging to user_id
+     * @param data message body to be encrypted
+     * @param user_id 
+     * @param FB::VariantMap containing GPG-Message
+     */
     FB::VariantMap gpg_encrypt_for(std::string data, std::string user_id);
+    
+    /**
+     * @fn BroadmaskAPI::gpg_encrypt_with
+     * @brief Encrypt data with key_id
+     * @param data message body to be encrypted
+     * @param key_id fingerprint of keyid of PGP key to encrypt for
+     * @param FB::VariantMap containing GPG-Message
+     */
     FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id);
+    
+    /**
+     * @fn BroadmaskAPI::gpg_decrypt
+     * @brief Tries to decrypt PGP message data
+     * @param data PGP ascii armored message
+     * @param FB::VariantMap plaintext if user possesses private key, error otherwise
+     */
     FB::VariantMap gpg_decrypt(std::string data);
+    
+    /**
+     * @fn BroadmaskAPI::gpg_associatedKeys
+     * @brief Retrieve a map of userid => keyid with all registered PGP keys
+     * @param FB::VariantMap
+     */
+    FB::VariantMap gpg_associatedKeys();
 
     
     

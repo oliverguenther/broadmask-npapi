@@ -394,10 +394,20 @@ FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
     return gpg->decrypt(data);
 }
 
-FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string keyid, string sysid) {
-    FB::VariantMap result;
-    result["error"] = "Not implemented";
+FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
+    return gpg->associatedKeys();
+}
+
+FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string sysid) {
+    string user_sk = get_member_sk(gid, sysid);
     
+    FB::VariantMap result;
+    if (user_sk.size() > 0) {
+        result = gpg_encrypt_for(user_sk, sysid);
+    } else {
+        result["error"] = true;
+        result["error_msg"] = "No SK for userid";
+    }
     return result;
 }
 
@@ -441,6 +451,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
     registerMethod("gpg_encrypt_with", make_method(this, &BroadmaskAPI::gpg_encrypt_with));
     registerMethod("gpg_decrypt", make_method(this, &BroadmaskAPI::gpg_decrypt));
+    registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));    
     
     // Restart PGP Wrapper
     gpg = new PGPStorageWrapper();

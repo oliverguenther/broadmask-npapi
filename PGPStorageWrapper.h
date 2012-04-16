@@ -65,6 +65,14 @@ public:
      * @return JS object with op results
      */    
     FB::VariantMap getPGPKey(std::string user_id);
+
+    /**
+     * @fn PGPStorageWrapper::associatedKeys
+     * @brief Retrieves the association of user ids to key ids / fingerprints
+     * @return JS object with op results
+     */    
+    FB::VariantMap associatedKeys();
+
     
 private:
     

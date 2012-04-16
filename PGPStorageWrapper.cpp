@@ -35,7 +35,14 @@ PGPStorageWrapper::~PGPStorageWrapper() {
     keymap.clear();
 }
 
-
+FB::VariantMap PGPStorageWrapper::associatedKeys() {
+    FB::VariantMap keys;
+    for (map<string,string>::iterator it = keymap.begin(); it != keymap.end(); ++it) {
+        keys[it->first] = it->second;
+    }
+    
+    return keys;
+}
 
 FB::VariantMap PGPStorageWrapper::encrypt_with(string data, string key_id) {
     gpgme_ctx_t ctx;
@@ -67,7 +74,7 @@ FB::VariantMap PGPStorageWrapper::encrypt_with(string data, string key_id) {
     if (err) {
         return gpgme_error(err);
     }
-    err = gpgme_op_encrypt (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
+    err = gpgme_op_encrypt_sign (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
     if (err) {
         return gpgme_error(err);
     }
