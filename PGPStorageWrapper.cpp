@@ -44,14 +44,139 @@ FB::VariantMap PGPStorageWrapper::associatedKeys() {
     return keys;
 }
 
-FB::VariantMap PGPStorageWrapper::encrypt_with(string data, string key_id) {
-    gpgme_ctx_t ctx;
+FB::VariantMap PGPStorageWrapper::import_key_block(std::string& keydata) {
+    gpgme_ctx_t ctx = create_gpg_context();
+    gpgme_error_t err;
+    gpgme_data_t key;
+    gpgme_import_result_t result;
+    
+    err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
+    if (err) {
+        return gpgme_error(err);
+    }
+    
+    err = gpgme_data_new_from_mem (&key, keydata.c_str(), keydata.length(), 1);
+    if (err) {
+        return gpgme_error(err);
+    }
+    
+    err = gpgme_op_import (ctx, key);
+    if (err) {
+        return gpgme_error(err);
+    }
+    result = gpgme_op_import_result (ctx);
+    gpgme_data_release (key);
+    
+    FB::VariantMap op_result;
+    
+    op_result["considered"] = result->considered;
+    op_result["no_user_id"] = result->no_user_id;
+    op_result["imported"] = result->imported;
+    op_result["unchanged"] = result->imported;
+    op_result["new_user_ids"] = result->new_user_ids;
+    op_result["not_imported"] = result->not_imported;
+    
+    FB::VariantMap op_result_imports;
+    int i;
+    gpgme_import_status_t import;
+    for (i = 0, import = result->imports; import; import = import->next, i++) {
+        FB::VariantMap import_map;
+        import_map["fingerprint"] = import->fpr;
+        import_map["result"] = gpgme_strerror(import->result);
+        import_map["status"] = import->status;
+        import_map["new_key"] = (import->status & GPGME_IMPORT_NEW)? true : false;
+		op_result_imports[import->fpr] = import_map;
+	}
+    op_result["imports"] = op_result_imports;
+    gpgme_release (ctx);
+    
+    return op_result;
+
+}
+
+FB::VariantMap PGPStorageWrapper::search_key(std::string& pattern) {
+    gpgme_ctx_t ctx = create_gpg_context();
+    gpgme_error_t err;
+    gpgme_key_t key;
+    
+    err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
+    if (err) {
+        return gpgme_error(err);
+    }
+    
+    // Search external source
+    err = gpgme_set_keylist_mode (ctx, (gpgme_get_keylist_mode (ctx)
+                                  | GPGME_KEYLIST_MODE_EXTERN));
+    if (err) {
+        return gpgme_error(err);
+    }
+    
+    // Search for keyid, or return all keys if keyid is null
+    if (pattern.size() > 0){
+        err = gpgme_op_keylist_start (ctx, pattern.c_str(), 0);
+    } else { // list all keys
+        err = gpgme_op_keylist_ext_start (ctx, NULL, 0, 0);
+    }
+    
+    if (err) {
+        return gpgme_error(err);
+    }
+    
+    FB::VariantMap op_result;
+    while (!(err = gpgme_op_keylist_next (ctx, &key))) {
+        FB::VariantMap key_result;
+        
+        key_result["key_id"] = key->subkeys->keyid;
+        if (key->uids && key->uids->name) 
+            key_result["name"] = key->uids->name;
+        
+        if (key->subkeys->fpr)
+            key_result["fingerprint"] = key->subkeys->fpr;
+        
+        if (key->uids && key->uids->email)
+            key_result["email"] = key->uids->email;
+        
+        key_result["expired"] = key->expired? true : false;
+        key_result["revoked"] = key->revoked? true : false;
+        key_result["disabled"] = key->disabled? true : false;
+        key_result["invalid"] = key->invalid? true : false;
+        key_result["secret"] = key->secret? true : false;
+        key_result["can_encrypt"] = key->can_encrypt? true : false;
+        key_result["can_sign"] = key->can_sign? true : false;
+        key_result["can_certify"] = key->can_certify? true : false;
+        key_result["can_authenticate"] = key->can_authenticate? true : false;
+        key_result["is_qualified"] = key->is_qualified? true : false;
+        key_result["owner_trust"] = key->owner_trust == GPGME_VALIDITY_UNKNOWN? "unknown":
+        key->owner_trust == GPGME_VALIDITY_UNDEFINED? "undefined":
+        key->owner_trust == GPGME_VALIDITY_NEVER? "never":
+        key->owner_trust == GPGME_VALIDITY_MARGINAL? "marginal":
+        key->owner_trust == GPGME_VALIDITY_FULL? "full":
+        key->owner_trust == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
+        
+        op_result[key->subkeys->keyid] = key_result;
+        gpgme_key_unref(key);
+    }
+
+    // gpgme_op_keylist_next returns GPG_ERR_EOF on completion
+    if (gpg_err_code (err) != GPG_ERR_EOF) {
+        return gpgme_error(err);
+    }
+    
+    err = gpgme_op_keylist_end (ctx);
+    if (err) {
+        return gpgme_error(err);
+    }
+    gpgme_release (ctx);    
+    return op_result;
+}
+
+FB::VariantMap PGPStorageWrapper::encrypt_with(string& data, string& key_id) {
+    gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_data_t in, out;
     gpgme_key_t key[2] = { NULL, NULL };
     gpgme_encrypt_result_t result;
     
-    ctx = create_gpg_context();    
     
     err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
     if (err) {
@@ -107,7 +232,7 @@ FB::VariantMap PGPStorageWrapper::encrypt_with(string data, string key_id) {
     return output;
 }
 
-FB::VariantMap PGPStorageWrapper::encrypt_for(string data, string user_id) {
+FB::VariantMap PGPStorageWrapper::encrypt_for(string& data, string& user_id) {
     map<string,string>::iterator it = keymap.find(user_id);
     
     if (it != keymap.end()) {
@@ -122,7 +247,7 @@ FB::VariantMap PGPStorageWrapper::encrypt_for(string data, string user_id) {
     
 }
 
-FB::VariantMap PGPStorageWrapper::decrypt(string data) {
+FB::VariantMap PGPStorageWrapper::decrypt(string& data) {
     gpgme_ctx_t ctx;
     gpgme_error_t err;
     gpgme_data_t in, out;
@@ -205,11 +330,11 @@ FB::VariantMap PGPStorageWrapper::decrypt(string data) {
 
 }
 
-void PGPStorageWrapper::setPGPKey(string user_id, string keyid) {
+void PGPStorageWrapper::setPGPKey(string& user_id, string& keyid) {
     keymap.insert(pair<string,string>(user_id, keyid));
 }
 
-FB::VariantMap PGPStorageWrapper::getPGPKey(string user_id) {
+FB::VariantMap PGPStorageWrapper::getPGPKey(string& user_id) {
     FB::VariantMap result;
     result["userid"] = user_id;
 

@@ -398,6 +398,13 @@ FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
     return gpg->associatedKeys();
 }
 
+FB::VariantMap BroadmaskAPI::gpg_import_key(string data, bool iskeyblock) {
+    if (iskeyblock)
+        return gpg->import_key_block(data);
+    else
+        return gpg->search_key(data);
+}
+
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string sysid) {
     string user_sk = get_member_sk(gid, sysid);
     
@@ -451,7 +458,8 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
     registerMethod("gpg_encrypt_with", make_method(this, &BroadmaskAPI::gpg_encrypt_with));
     registerMethod("gpg_decrypt", make_method(this, &BroadmaskAPI::gpg_decrypt));
-    registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));    
+    registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));
+    registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     
     // Restart PGP Wrapper
     gpg = new PGPStorageWrapper();

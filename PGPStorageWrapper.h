@@ -29,7 +29,7 @@ public:
      * @param user_id user id
      * @return JS object with op results
      */
-    FB::VariantMap encrypt_for(std::string data, std::string user_id);
+    FB::VariantMap encrypt_for(std::string& data, std::string& user_id);
     
     /**
      * @fn PGPStorageWrapper::encrypt_with
@@ -38,7 +38,7 @@ public:
      * @param key_id key identifier or fingerprint
      * @return JS object with op results
      */
-    FB::VariantMap encrypt_with(std::string data, std::string key_id);
+    FB::VariantMap encrypt_with(std::string& data, std::string& key_id);
     
     /**
      * @fn PGPStorageWrapper::decrypt
@@ -46,7 +46,7 @@ public:
      * @param data Data to decrypt
      * @return JS object with op results
      */
-    FB::VariantMap decrypt(std::string data);
+    FB::VariantMap decrypt(std::string& data);
     
     
     /**
@@ -55,7 +55,7 @@ public:
      * @param user_id the user id the keyid belongs to
      * @param key_id the key_id to add
      */
-    void setPGPKey(std::string user_id, std::string keyid);
+    void setPGPKey(std::string& user_id, std::string& keyid);
     
     
     /**
@@ -64,7 +64,7 @@ public:
      * @param user_id the user id the keyid belongs to
      * @return JS object with op results
      */    
-    FB::VariantMap getPGPKey(std::string user_id);
+    FB::VariantMap getPGPKey(std::string& user_id);
 
     /**
      * @fn PGPStorageWrapper::associatedKeys
@@ -72,6 +72,20 @@ public:
      * @return JS object with op results
      */    
     FB::VariantMap associatedKeys();
+
+    /**
+     * @fn PGPStorageWrapper::import_key_block
+     * @brief Import the keyblock to gpg keychain
+     * @return JS object with op results
+     */    
+    FB::VariantMap import_key_block(std::string& keydata);
+    
+    /**
+     * @fn PGPStorageWrapper::fetch_key_id
+     * @brief Retrieves the key that matches pattern and imports the key to the GPG keychain
+     * @return JS object with op results
+     */    
+    FB::VariantMap search_key(std::string& key);
 
     
 private:
@@ -86,7 +100,7 @@ private:
     // Create new context
     gpgme_ctx_t create_gpg_context();
     std::string get_validity_str (gpgme_validity_t& v);
-    std::string PGPStorageWrapper::get_status_str (gpgme_error_t& e);
+    std::string get_status_str (gpgme_error_t& e);
 
 
     

@@ -143,7 +143,7 @@ public:
      * @brief Encrypt data for the registered key belonging to user_id
      * @param data message body to be encrypted
      * @param user_id 
-     * @param FB::VariantMap containing GPG-Message
+     * @return FB::VariantMap containing GPG-Message
      */
     FB::VariantMap gpg_encrypt_for(std::string data, std::string user_id);
     
@@ -152,7 +152,7 @@ public:
      * @brief Encrypt data with key_id
      * @param data message body to be encrypted
      * @param key_id fingerprint of keyid of PGP key to encrypt for
-     * @param FB::VariantMap containing GPG-Message
+     * @return FB::VariantMap containing GPG-Message
      */
     FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id);
     
@@ -160,16 +160,25 @@ public:
      * @fn BroadmaskAPI::gpg_decrypt
      * @brief Tries to decrypt PGP message data
      * @param data PGP ascii armored message
-     * @param FB::VariantMap plaintext if user possesses private key, error otherwise
+     * @return FB::VariantMap plaintext if user possesses private key, error otherwise
      */
     FB::VariantMap gpg_decrypt(std::string data);
     
     /**
      * @fn BroadmaskAPI::gpg_associatedKeys
      * @brief Retrieve a map of userid => keyid with all registered PGP keys
-     * @param FB::VariantMap
+     * @return FB::VariantMap
      */
     FB::VariantMap gpg_associatedKeys();
+    
+    /**
+     * @fn BroadmaskAPI::gpg_import_key
+     * @brief Import the key_id or key block
+     * @param data Key data (id/fingerprint or block)
+     * @param iskeyblock set to true if data is a key block
+     * @return FB::VariantMap
+     */
+    FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock);
 
     
     
