@@ -363,10 +363,8 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
  * GPG API
  */
 
-void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
-    gpg->setPGPKey(user_id, key_id);
-    // store wrapper again
-    fs::path gpgfile = broadmask_root() / "pgpstorage";
+void BroadmaskAPI::store_storage_wrapper() {
+    fs::path gpgfile = broadmask_root() / "userstorage";
     
     std::ofstream ofs(gpgfile.string().c_str(), std::ios::out);
     boost::archive::text_oarchive oa(ofs);
@@ -375,11 +373,21 @@ void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
         oa << *gpg;
     } catch (exception& e) {
         cout << e.what() << endl;
-    }
+    }    
+}
+
+void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
+    gpg->setPGPKey(user_id, key_id);
+    store_storage_wrapper();
 }
 
 FB::VariantMap BroadmaskAPI::gpg_get_keyid(std::string user_id) {
     return gpg->getPGPKey(user_id);
+}
+
+void BroadmaskAPI::gpg_remove_key(std::string user_id) {
+    gpg->removePGPKey(user_id);
+    store_storage_wrapper();
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
@@ -460,10 +468,11 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_decrypt", make_method(this, &BroadmaskAPI::gpg_decrypt));
     registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
+    registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
     
     // Restart PGP Wrapper
-    gpg = new PGPStorageWrapper();
-    fs::path gpgfile = broadmask_root() / "pgpstorage";
+    gpg = new UserStorage();
+    fs::path gpgfile = broadmask_root() / "userstorage";
     if (fs::is_regular_file(gpgfile)) {
         std::ifstream ifs(gpgfile.string().c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);

@@ -16,14 +16,14 @@
 #include <gpgme.h>
 
 
-class PGPStorageWrapper  {
+class UserStorage  {
     
 public: 
-    PGPStorageWrapper();
-    ~PGPStorageWrapper();
+    UserStorage();
+    ~UserStorage();
     
     /**
-     * @fn PGPStorageWrapper::encrypt_for
+     * @fn UserStorage::encrypt_for
      * @brief Tries to encrypt data with PGP key corresponding to user id
      * @param data Data to encrypt
      * @param user_id user id
@@ -32,7 +32,7 @@ public:
     FB::VariantMap encrypt_for(std::string& data, std::string& user_id);
     
     /**
-     * @fn PGPStorageWrapper::encrypt_with
+     * @fn UserStorage::encrypt_with
      * @brief Tries to encrypt data with PGP key key_id
      * @param data Data to encrypt
      * @param key_id key identifier or fingerprint
@@ -41,7 +41,7 @@ public:
     FB::VariantMap encrypt_with(std::string& data, std::string& key_id);
     
     /**
-     * @fn PGPStorageWrapper::decrypt
+     * @fn UserStorage::decrypt
      * @brief Tries to decrypt payload with a key from keyring
      * @param data Data to decrypt
      * @return JS object with op results
@@ -50,7 +50,7 @@ public:
     
     
     /**
-     * @fn PGPStorageWrapper::setPGPKey
+     * @fn UserStorage::setPGPKey
      * @brief Adds a PGP public key id for user id
      * @param user_id the user id the keyid belongs to
      * @param key_id the key_id to add
@@ -59,29 +59,36 @@ public:
     
     
     /**
-     * @fn PGPStorageWrapper::getPGPKey
+     * @fn UserStorage::getPGPKey
      * @brief Retrieves the Key ID for user_id, if existant
      * @param user_id the user id the keyid belongs to
      * @return JS object with op results
      */    
     FB::VariantMap getPGPKey(std::string& user_id);
+    
+    /**
+     * @fn UserStorage::removePGPKey
+     * @brief Removes the mapping for user user_id
+     * @param user_id the user id to delete the mapping for
+     */
+    void removePGPKey(std::string& user_id);
 
     /**
-     * @fn PGPStorageWrapper::associatedKeys
+     * @fn UserStorage::associatedKeys
      * @brief Retrieves the association of user ids to key ids / fingerprints
      * @return JS object with op results
      */    
     FB::VariantMap associatedKeys();
 
     /**
-     * @fn PGPStorageWrapper::import_key_block
+     * @fn UserStorage::import_key_block
      * @brief Import the keyblock to gpg keychain
      * @return JS object with op results
      */    
     FB::VariantMap import_key_block(std::string& keydata);
     
     /**
-     * @fn PGPStorageWrapper::fetch_key_id
+     * @fn UserStorage::fetch_key_id
      * @brief Retrieves the key that matches pattern and imports the key to the GPG keychain
      * @return JS object with op results
      */    

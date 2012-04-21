@@ -18,24 +18,24 @@
  * mail@oliverguenther.de
  *
  * 
- * PGPStorageWrapper.cpp
+ * UserStorage.cpp
  */
-#include "PGPStorageWrapper.h"
+#include "UserStorage.h"
 #include "boost/lexical_cast.hpp"
 
 using namespace std;
 
 
-PGPStorageWrapper::PGPStorageWrapper() {
+UserStorage::UserStorage() {
     keymap = map<string,string>();
     version = (char *) gpgme_check_version(NULL);
 }
 
-PGPStorageWrapper::~PGPStorageWrapper() {
+UserStorage::~UserStorage() {
     keymap.clear();
 }
 
-FB::VariantMap PGPStorageWrapper::associatedKeys() {
+FB::VariantMap UserStorage::associatedKeys() {
     FB::VariantMap keys;
     for (map<string,string>::iterator it = keymap.begin(); it != keymap.end(); ++it) {
         keys[it->first] = it->second;
@@ -44,7 +44,7 @@ FB::VariantMap PGPStorageWrapper::associatedKeys() {
     return keys;
 }
 
-FB::VariantMap PGPStorageWrapper::import_key_block(std::string& keydata) {
+FB::VariantMap UserStorage::import_key_block(std::string& keydata) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_data_t key;
@@ -94,7 +94,7 @@ FB::VariantMap PGPStorageWrapper::import_key_block(std::string& keydata) {
 
 }
 
-FB::VariantMap PGPStorageWrapper::search_key(std::string& pattern) {
+FB::VariantMap UserStorage::search_key(std::string& pattern) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_key_t key;
@@ -123,6 +123,7 @@ FB::VariantMap PGPStorageWrapper::search_key(std::string& pattern) {
     }
     
     FB::VariantMap op_result;
+    int num_keys = 0;
     while (!(err = gpgme_op_keylist_next (ctx, &key))) {
         FB::VariantMap key_result;
         
@@ -154,6 +155,7 @@ FB::VariantMap PGPStorageWrapper::search_key(std::string& pattern) {
         key->owner_trust == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
         
         op_result[key->subkeys->keyid] = key_result;
+        num_keys++;
         gpgme_key_unref(key);
     }
 
@@ -166,11 +168,17 @@ FB::VariantMap PGPStorageWrapper::search_key(std::string& pattern) {
     if (err) {
         return gpgme_error(err);
     }
+    
+    if (!num_keys) {
+        op_result["error"] = true;
+        op_result["error_msg"] = "No keys found";
+    }
+    
     gpgme_release (ctx);    
     return op_result;
 }
 
-FB::VariantMap PGPStorageWrapper::encrypt_with(string& data, string& key_id) {
+FB::VariantMap UserStorage::encrypt_with(string& data, string& key_id) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_data_t in, out;
@@ -232,7 +240,7 @@ FB::VariantMap PGPStorageWrapper::encrypt_with(string& data, string& key_id) {
     return output;
 }
 
-FB::VariantMap PGPStorageWrapper::encrypt_for(string& data, string& user_id) {
+FB::VariantMap UserStorage::encrypt_for(string& data, string& user_id) {
     map<string,string>::iterator it = keymap.find(user_id);
     
     if (it != keymap.end()) {
@@ -247,7 +255,7 @@ FB::VariantMap PGPStorageWrapper::encrypt_for(string& data, string& user_id) {
     
 }
 
-FB::VariantMap PGPStorageWrapper::decrypt(string& data) {
+FB::VariantMap UserStorage::decrypt(string& data) {
     gpgme_ctx_t ctx;
     gpgme_error_t err;
     gpgme_data_t in, out;
@@ -330,11 +338,11 @@ FB::VariantMap PGPStorageWrapper::decrypt(string& data) {
 
 }
 
-void PGPStorageWrapper::setPGPKey(string& user_id, string& keyid) {
+void UserStorage::setPGPKey(string& user_id, string& keyid) {
     keymap.insert(pair<string,string>(user_id, keyid));
 }
 
-FB::VariantMap PGPStorageWrapper::getPGPKey(string& user_id) {
+FB::VariantMap UserStorage::getPGPKey(string& user_id) {
     FB::VariantMap result;
     result["userid"] = user_id;
 
@@ -350,18 +358,23 @@ FB::VariantMap PGPStorageWrapper::getPGPKey(string& user_id) {
     return result;    
 }
 
+void UserStorage::removePGPKey(string& user_id) {
+    keymap.erase(user_id);
+}
 
-FB::VariantMap PGPStorageWrapper::gpgme_error (gpgme_error_t& err) {
+
+
+FB::VariantMap UserStorage::gpgme_error (gpgme_error_t& err) {
     FB::VariantMap error;
     error["error"] = true;
     error["source"] = gpgme_strsource (err);
     error["error_code"] = gpgme_err_code (err); 
-    error["error_desc"] = gpgme_strerror (err);
+    error["error_msg"] = gpgme_strerror (err);
     
     return error;
 }
 
-gpgme_ctx_t PGPStorageWrapper::create_gpg_context() {
+gpgme_ctx_t UserStorage::create_gpg_context() {
     gpgme_ctx_t ctx;
     gpgme_error_t err;
     
@@ -378,7 +391,7 @@ gpgme_ctx_t PGPStorageWrapper::create_gpg_context() {
     return ctx;
 }
 
-string PGPStorageWrapper::get_validity_str (gpgme_validity_t& v) {
+string UserStorage::get_validity_str (gpgme_validity_t& v) {
     switch (v) {
         case GPGME_VALIDITY_UNKNOWN:
             return "unknown";
@@ -404,7 +417,7 @@ string PGPStorageWrapper::get_validity_str (gpgme_validity_t& v) {
     }
 }
 
-string PGPStorageWrapper::get_status_str (gpgme_error_t& e) {
+string UserStorage::get_status_str (gpgme_error_t& e) {
     switch (e) {
         case GPG_ERR_NO_ERROR:
             return "VALID";

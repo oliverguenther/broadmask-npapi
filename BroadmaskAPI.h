@@ -18,7 +18,7 @@
 #include "BES_sender.h"
 #include "BES_receiver.h"
 #include "Base64.h"
-#include "PGPStorageWrapper.h"
+#include "UserStorage.h"
 
 
 #include <boost/filesystem/path.hpp>
@@ -131,6 +131,14 @@ public:
     void gpg_store_keyid(std::string user_id, std::string key_id);
     
     /**
+     * @fn BroadmaskAPI::gpg_remove_key
+     * @brief Deletes the key associated with user_id
+     * @param user_id 
+     */
+    void gpg_remove_key(std::string user_id);
+
+    
+    /**
      * @fn BroadmaskAPI::gpg_get_keyid
      * @brief Tries to retrieve a PGP key id or fingerprint for the user user_id
      * @param user_id 
@@ -178,7 +186,7 @@ public:
      * @param iskeyblock set to true if data is a key block
      * @return FB::VariantMap
      */
-    FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock);
+    FB::VariantMap gpg_import_key(std::string data, bool iskeyblock);
 
     
     
@@ -196,7 +204,8 @@ private:
     BES_sender* get_sender_instance(std::string gid);
     BES_receiver* get_receiver_instance(std::string gid);
     
-    PGPStorageWrapper *gpg;
+    UserStorage *gpg;
+    void store_storage_wrapper();
 
 };
 
