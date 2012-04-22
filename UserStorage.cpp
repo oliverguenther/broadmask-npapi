@@ -20,7 +20,8 @@
  * 
  * UserStorage.cpp
  */
-#include "UserStorage.h"
+
+#include "UserStorage.hpp"
 #include "boost/lexical_cast.hpp"
 
 using namespace std;
@@ -91,7 +92,7 @@ FB::VariantMap UserStorage::import_key_block(std::string& keydata) {
     gpgme_release (ctx);
     
     return op_result;
-
+    
 }
 
 FB::VariantMap UserStorage::search_key(std::string& pattern) {
@@ -106,7 +107,7 @@ FB::VariantMap UserStorage::search_key(std::string& pattern) {
     
     // Search external source
     err = gpgme_set_keylist_mode (ctx, (gpgme_get_keylist_mode (ctx)
-                                  | GPGME_KEYLIST_MODE_EXTERN));
+                                        | GPGME_KEYLIST_MODE_EXTERN));
     if (err) {
         return gpgme_error(err);
     }
@@ -158,7 +159,7 @@ FB::VariantMap UserStorage::search_key(std::string& pattern) {
         num_keys++;
         gpgme_key_unref(key);
     }
-
+    
     // gpgme_op_keylist_next returns GPG_ERR_EOF on completion
     if (gpg_err_code (err) != GPG_ERR_EOF) {
         return gpgme_error(err);
@@ -261,7 +262,7 @@ FB::VariantMap UserStorage::decrypt(string& data) {
     gpgme_data_t in, out;
     gpgme_decrypt_result_t decrypt_result;
     gpgme_verify_result_t verify_result;
-
+    
     
     ctx = create_gpg_context();    
     err = gpgme_data_new_from_mem (&in, data.c_str(), data.length(), 0);
@@ -278,10 +279,10 @@ FB::VariantMap UserStorage::decrypt(string& data) {
     if (err) {
         return gpgme_error(err);
     }
-
+    
     decrypt_result = gpgme_op_decrypt_result (ctx);
     verify_result = gpgme_op_verify_result (ctx);
-
+    
     if (!verify_result) {
         FB::VariantMap result;
         result["error"] = true;
@@ -304,7 +305,7 @@ FB::VariantMap UserStorage::decrypt(string& data) {
         sig_i["status"] = get_status_str(sig->status);
         
         sigmap[boost::lexical_cast<string>(sigcount)] = sig_i;
-
+        
         // get status of next signature
         sig = sig->next;
         sigcount++;
@@ -315,7 +316,7 @@ FB::VariantMap UserStorage::decrypt(string& data) {
     } else {
         response["signed"] = true;
     }
-
+    
     size_t out_size = 0;
     std::string out_buf;
     out_buf = gpgme_data_release_and_get_mem (out, &out_size);
@@ -335,7 +336,7 @@ FB::VariantMap UserStorage::decrypt(string& data) {
     gpgme_release (ctx);
     
     return response;
-
+    
 }
 
 void UserStorage::setPGPKey(string& user_id, string& keyid) {
@@ -345,7 +346,7 @@ void UserStorage::setPGPKey(string& user_id, string& keyid) {
 FB::VariantMap UserStorage::getPGPKey(string& user_id) {
     FB::VariantMap result;
     result["userid"] = user_id;
-
+    
     map<string,string>::iterator it = keymap.find(user_id);
     
     if (it != keymap.end()) {

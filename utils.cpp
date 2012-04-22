@@ -41,6 +41,16 @@ fs::path get_instance_file(string gid, string file) {
     
 }
 
+fs::path get_instance_path(string type, string instance_id) {
+    
+    fs::path path = broadmask_root();
+    path /= type;
+    path /= instance_id;
+    
+    return path;
+    
+}
+
 
 pair< vector<string>, vector<string> > stored_instances() {
     

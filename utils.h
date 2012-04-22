@@ -20,6 +20,8 @@ boost::filesystem::path instance_dir(std::string &gid);
  */
 boost::filesystem::path get_instance_file(std::string gid, std::string file);
 
+boost::filesystem::path get_instance_path(std::string type, std::string instance_id);
+
 std::pair< std::vector<std::string>, std::vector<std::string> > stored_instances();
 
 

@@ -18,7 +18,8 @@
 #include "BES_sender.h"
 #include "BES_receiver.h"
 #include "Base64.h"
-#include "UserStorage.h"
+#include "UserStorage.hpp"
+#include "InstanceStorage.hpp"
 
 
 #include <boost/filesystem/path.hpp>

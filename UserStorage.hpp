@@ -1,5 +1,5 @@
-#ifndef H_PGP_STORAGE_WRAPPER
-#define H_PGP_STORAGE_WRAPPER
+#ifndef H_USER_STORAGE
+#define H_USER_STORAGE
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
