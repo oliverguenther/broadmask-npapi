@@ -64,160 +64,17 @@ BES_receiver* BroadmaskAPI::get_receiver_instance(string gid) {
         return NULL;
 }
 
-/** Load the BES instance with the GID or create one if non-existant
- *
- * @param gid Group identifier
- * @param N User count
- */
-string BroadmaskAPI::start_sender_instance(string gid, int N) {
-    map<string,BES_sender>::iterator it = sending_groups.find(gid);
-    fs::path bcfile = get_instance_file(gid, "bes_sender");
-    stringstream params;
-
-    
-    if (it != sending_groups.end()) {
-        cout << "Sending Instance " << gid << " is already loaded" << endl;
-        it->second.public_params_to_stream(params);
-        return base64_encode(params.str());
-    }
-    
-    BES_sender *instance;
-    if (fs::is_regular_file(bcfile)) {
-        instance = dynamic_cast<BES_sender*>(load_instance(bcfile));        
-    } else {
-        instance = new BES_sender(gid, N);
-        sending_groups.insert(pair<string, BES_sender> (gid, *instance));
-
-        // Store BES system
-        instance->store(true);
-        
-        // Store Instance 
-        string classpath(bcfile.string());
-        classpath += "_serialized";
-        
-        std::ofstream ofs(classpath.c_str());
-        boost::archive::text_oarchive oa(ofs);
-        oa << *(instance);
-    }
-    
-    if (instance == NULL) {
-        cout << "Instance " << gid << " couldn't be loaded" << endl;
-        return "";
-    }
-    instance->public_params_to_stream(params);    
-    return base64_encode(params.str());
-    
+string BroadmaskAPI::create_sender_instance(string gid, string name, int N) {
+    return istore->start_sender_instance(gid, name, N);
 }
 
-void BroadmaskAPI::start_receiver_instance(string gid, int N, string pubdata_b64, string private_key_b64) {
-    map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
-    fs::path bcfile = get_instance_file(gid, "bes_receiver");
-    
-    if (it != receiving_groups.end()) {
-        cout << "Receiving Instance " << gid << " is already loaded" << endl;
-    } else if (fs::is_regular_file(bcfile)) {
-        load_instance(bcfile);
-    } else {
-        string public_params = base64_decode(pubdata_b64);
-        string private_key = base64_decode(private_key_b64);
-        
-        BES_receiver *instance = new BES_receiver(gid, N, public_params, private_key);
-        receiving_groups.insert(pair<string, BES_receiver> (gid,*instance));
-        
-        // Store BES system
-        instance->store(true);
-        
-        // Store Instance 
-        string classpath(bcfile.string());
-        classpath += "_serialized";
-        
-        std::ofstream ofs(classpath.c_str());
-        boost::archive::text_oarchive oa(ofs);
-        oa << *(instance);  
-    }
-    
+void BroadmaskAPI::create_receiver_instance(string gid, string name, int N, string pubdata_b64, string private_key_b64) {
+    istore->start_receiver_instance(gid, name, N, pubdata_b64, private_key_b64);
 }
 
-BES_base* BroadmaskAPI::load_instance(fs::path path) {
-    if (!fs::is_regular_file(path)) {
-        cout << "Couldn't load instance " << path.string() << endl;
-        return NULL;
-    }
-    
-    if (path.filename() == "bes_receiver") {
-        BES_receiver *instance = new BES_receiver;
-        
-        cout << "Loading receiver instance " << path.string() << endl;
-        
-        string classpath(path.string());
-        classpath += "_serialized";
-        
-        std::ifstream ifs(classpath.c_str(), std::ios::in);
-        boost::archive::text_iarchive ia(ifs);
-        ia >> *(instance);
-        
-        instance->restore();
-        receiving_groups.insert(pair<string, BES_receiver> (instance->groupid(),*instance));
-        
-        return (BES_base*) instance;
-    } else if (path.filename() == "bes_sender") {
-        BES_sender *instance = new BES_sender;
-        
-        cout << "Loading sender instance " << path.string() << endl;
-        
-        string classpath(path.string());
-        classpath += "_serialized";
-        
-        std::ifstream ifs(classpath.c_str(), std::ios::in);
-        boost::archive::text_iarchive ia(ifs);
-        try {
-            cout << "Input stream is good? " << ifs.good() << " is eof?" << ifs.eof() << endl;
-            ia >> *instance;
-            instance->restore();
-            sending_groups.insert(pair<string, BES_sender> (instance->groupid(),*instance));
-            
-            return (BES_base*) instance;
-        } catch (exception& e) {
-            cout << e.what() << endl;
-            return NULL;
-        }
-    } else {
-        cout << "Couldn't determine instance type " << path.string() << endl;
-        return NULL;
-    }
+void BroadmaskAPI::remove_instance(string id) {
+    istore->remove_instance(id);
 }
-
-void BroadmaskAPI::restore_instances() {
-    pair< vector<string>, vector<string> > instances = stored_instances();
-    
-    for (vector<string>::iterator it = instances.first.begin(); it!=instances.first.end(); ++it) {
-        load_instance(fs::path(*it));
-    }
-
-    for (vector<string>::iterator it = instances.second.begin(); it!=instances.second.end(); ++it) {
-        load_instance(fs::path(*it));
-    }
-    
-}
-
-template <class T>
-void BroadmaskAPI::storeInstance(T *bci) {
-    // Only derived classes of BES_base
-    (void)static_cast<BES_base*>((T*)0);
-        
-    // Store BES system
-    bci->store(true);
-    
-    // Store Instance 
-    string classpath = bci->instance_file();
-    classpath += "_serialized";
-    
-    std::ofstream ofs(classpath.c_str());
-    boost::archive::text_oarchive oa(ofs);
-    oa << *(bci);
-    
-}
-
 
 std::string BroadmaskAPI::get_member_sk(string gid, string id) {
     BES_sender *bci = get_sender_instance(gid);
@@ -255,7 +112,7 @@ void BroadmaskAPI::remove_member(std::string gid, std::string id) {
     BES_sender *bci = get_sender_instance(gid);
     if (bci) {
         bci->remove_member(id);
-        bci->store(true);
+//        bci->store(true);
     }
 }
 
@@ -360,57 +217,53 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
 }
 
 /*
+ * Instance Management
+ */
+
+FB::VariantMap BroadmaskAPI::get_stored_instances() {
+    return istore->get_stored_instances();
+}
+
+/*
  * GPG API
  */
 
-void BroadmaskAPI::store_storage_wrapper() {
-    fs::path gpgfile = broadmask_root() / "userstorage";
-    
-    std::ofstream ofs(gpgfile.string().c_str(), std::ios::out);
-    boost::archive::text_oarchive oa(ofs);
-    
-    try {
-        oa << *gpg;
-    } catch (exception& e) {
-        cout << e.what() << endl;
-    }    
-}
 
 void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
-    gpg->setPGPKey(user_id, key_id);
-    store_storage_wrapper();
+    ustore->setPGPKey(user_id, key_id);
+    UserStorage::archive(ustore);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_get_keyid(std::string user_id) {
-    return gpg->getPGPKey(user_id);
+    return ustore->getPGPKey(user_id);
 }
 
 void BroadmaskAPI::gpg_remove_key(std::string user_id) {
-    gpg->removePGPKey(user_id);
-    store_storage_wrapper();
+    ustore->removePGPKey(user_id);
+    UserStorage::archive(ustore);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
-    return gpg->encrypt_for(data, user_id);
+    return ustore->encrypt_for(data, user_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
-    return gpg->encrypt_with(data, key_id);
+    return ustore->encrypt_with(data, key_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
-    return gpg->decrypt(data);
+    return ustore->decrypt(data);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
-    return gpg->associatedKeys();
+    return ustore->associatedKeys();
 }
 
 FB::VariantMap BroadmaskAPI::gpg_import_key(string data, bool iskeyblock) {
     if (iskeyblock)
-        return gpg->import_key_block(data);
+        return ustore->import_key_block(data);
     else
-        return gpg->search_key(data);
+        return ustore->search_key(data);
 }
 
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string sysid) {
@@ -451,12 +304,12 @@ BroadmaskPtr BroadmaskAPI::getPlugin()
 ////////////////////////////////////////////////////////////////////////////
 BroadmaskAPI::BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host) :
 m_plugin(plugin), m_host(host) {
-    registerMethod("start_sender_instance", make_method(this, &BroadmaskAPI::start_sender_instance));
+    registerMethod("create_sender_instance", make_method(this, &BroadmaskAPI::create_sender_instance));
+    registerMethod("create_receiver_instance", make_method(this, &BroadmaskAPI::create_receiver_instance));
     registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
     registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
     registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        
     registerMethod("get_member_sk_gpg", make_method(this, &BroadmaskAPI::get_member_sk_gpg));
-    registerMethod("start_receiver_instance", make_method(this, &BroadmaskAPI::start_receiver_instance));
     registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
     registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
     registerMethod("test", make_method(this, &BroadmaskAPI::test));
@@ -469,21 +322,14 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
+    registerMethod("get_stored_instances", make_method(this, &BroadmaskAPI::get_stored_instances));
+    registerMethod("remove_instance", make_method(this, &BroadmaskAPI::remove_instance));    
+
+    // (Re-)start User Storage
+    ustore = UserStorage::unarchive();
     
-    // Restart PGP Wrapper
-    gpg = new UserStorage();
-    fs::path gpgfile = broadmask_root() / "userstorage";
-    if (fs::is_regular_file(gpgfile)) {
-        std::ifstream ifs(gpgfile.string().c_str(), std::ios::in);
-        boost::archive::text_iarchive ia(ifs);
-        
-        try {
-            ia >> *gpg;
-        } catch (exception& e) {
-            cout << e.what() << endl;
-        }
-    }
-    
+    // (Re-)start Instance Storage
+    istore = InstanceStorage::unarchive();
 }
 
 
@@ -512,7 +358,7 @@ void BroadmaskAPI::test(const FB::JSObjectPtr &callback) {
 
 void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     cout << "starting testcase" << endl;
-    start_sender_instance("foo", 256);
+    create_sender_instance("1",  "testsuite_instance", 256);
 
     BES_sender *sender = get_sender_instance("foo");       
     if (!sender)
@@ -538,7 +384,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
          cout << "Member '1' was not removed" << endl;
     
     boost::timer total;
-    string foo_pub_params = start_sender_instance("test", 256);
+    string foo_pub_params = create_sender_instance("1", "test_instance", 256);
     cout << "Setup phase: " << total.elapsed() << endl;
 
     vector<string> s;
@@ -548,7 +394,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         s.push_back(user);
         
         string privkey = get_member_sk("test", user);
-        start_receiver_instance(user, 256, foo_pub_params, privkey);       
+        create_receiver_instance(user, "test_user", 256, foo_pub_params, privkey);       
     }
     
     
@@ -601,8 +447,6 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     
     cout << "Total time elapsed: " << total.elapsed() << endl;
     
-    
-    storeInstance(sender);
     sending_groups.erase("test");
     
     sender = get_sender_instance("test");

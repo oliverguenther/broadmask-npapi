@@ -46,6 +46,8 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
+
 
 // JSAPI
 #include "JSAPIAuto.h"
@@ -55,8 +57,9 @@
 
 
 /* The available types */
-#define BROADMASK_INSTANCE_SENDER 1
-#define BROADMASK_INSTANCE_RECEIVER 2
+#define BROADMASK_INSTANCE_BES_SENDER 1
+#define BROADMASK_INSTANCE_BES_RECEIVER 2
+#define BROADMASK_INSTANCE_SK 4
 
 /**
  * @struct instance_s
@@ -69,7 +72,8 @@ struct InstanceDescriptor {
     InstanceDescriptor(std::string id, std::string name, int type, int max_users) 
         : id(id), name(name), type(type), max_users(max_users) {
             
-         string type_str = type == BROADMASK_INSTANCE_SENDER ? "sender" : "receiver";
+            string type_str = type == BROADMASK_INSTANCE_BES_SENDER ? "bes_sender" : 
+            type == BROADMASK_INSTANCE_BES_RECEIVER ? "bes_receiver" : "sk";
          boost::filesystem::path instance_path = get_instance_path(type_str, id);
         path = instance_path.string();
     }
@@ -89,8 +93,6 @@ struct InstanceDescriptor {
     // Instance max. number of users
     int max_users;
     
-    
-    
     template<class Archive>
     void serialize(Archive &ar, const unsigned int file_version) {
         
@@ -109,6 +111,13 @@ class InstanceStorage  {
 public: 
     ~InstanceStorage();
     
+    /**
+     * @fn InstanceStorage::get_stored_instances
+     * @brief Get all stored instances
+     * return FB::VariantMap instance, JS object containing instances
+     * [id, name, type, path, max_users]
+     */
+    FB::VariantMap get_stored_instances();
     
     /**
      * @fn InstanceStorage::store_instance
@@ -117,6 +126,8 @@ public:
      * [id, name, type, path, max_users]
      */
     void store_instance(FB::JSObjectPtr instance);
+    
+    void remove_instance(string id);
     
     /**
      * @fn InstanceStorage::instance_description
@@ -143,10 +154,18 @@ public:
     template<typename InstanceType>
     InstanceType* load_instance(std::string id);
     
-    FB::VariantMap start_sender_instance(string id, string name, int N);
+    template<typename InstanceType>
+    void storeInstance(InstanceType *instance);
+    
+    std::string start_sender_instance(std::string id, std::string name, int N);
+    void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);
     
     static void archive(InstanceStorage *storage);
     static InstanceStorage* unarchive();
+
+   
+    
+
     
     
 private:

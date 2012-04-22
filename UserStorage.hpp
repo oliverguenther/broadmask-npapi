@@ -94,6 +94,8 @@ public:
      */    
     FB::VariantMap search_key(std::string& key);
 
+    static void archive(UserStorage *storage);
+    static UserStorage* unarchive();
     
 private:
     

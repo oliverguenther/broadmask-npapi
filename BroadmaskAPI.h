@@ -53,7 +53,7 @@ public:
      * 
      * @return [N,PK,HDR] as base64 encoded binary to be used on receiving side
      */
-    std::string start_sender_instance(std::string gid, int N);
+    std::string create_sender_instance(string gid, string name, int N);
     
     std::string sk_encrypt_b64(std::string data, bool image);
 
@@ -62,13 +62,8 @@ public:
      * @fn BroadmaskAPI::start_receiver_instance
      * @brief Create or resume a receiver decryption system for the given groupid
      */
-    void start_receiver_instance(std::string gid, int N, std::string params, std::string private_key);
-    
-    /**
-     * @fn BroadmaskAPI::restore_instances
-     * @brief Tries to reload all stored (sender, receiving) instances
-     */
-    void restore_instances();
+    void create_receiver_instance(std::string gid, std::string name, int N, std::string params, std::string private_key);
+
     
     /**
      * @fn BroadmaskAPI::get_member_sk
@@ -188,6 +183,14 @@ public:
      * @return FB::VariantMap
      */
     FB::VariantMap gpg_import_key(std::string data, bool iskeyblock);
+    
+    /**
+     * @fn BroadmaskAPI::get_stored_instances
+     * @brief Return stored instances
+     */     
+    FB::VariantMap get_stored_instances();
+    
+    void remove_instance(string id);
 
     
     
@@ -198,15 +201,11 @@ private:
     std::map<std::string, BES_sender> sending_groups;
     std::map<std::string, BES_receiver> receiving_groups;
     
-    BES_base* load_instance(boost::filesystem::path p);
-    template <class T>
-    void storeInstance(T *bci);
-
     BES_sender* get_sender_instance(std::string gid);
     BES_receiver* get_receiver_instance(std::string gid);
     
-    UserStorage *gpg;
-    void store_storage_wrapper();
+    UserStorage *ustore;
+    InstanceStorage *istore;
 
 };
 

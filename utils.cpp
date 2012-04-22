@@ -45,7 +45,13 @@ fs::path get_instance_path(string type, string instance_id) {
     
     fs::path path = broadmask_root();
     path /= type;
+    
+    if(!fs::is_directory(path)) {
+        fs::create_directories(path);
+    }
+    
     path /= instance_id;
+
     
     return path;
     

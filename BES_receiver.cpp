@@ -152,14 +152,14 @@ int BES_receiver::restore() {
     // Restore global parameters
     setup_global_system(&gbs, params, N);
     
-    fs::path bcfile = get_instance_file(gid, "bes_receiver");
-    
+    string bcfile = instance_file();
+
     if (!fs::is_regular_file(bcfile)) {
         cout << "No saved instance of " << gid << endl;
         return 1;
     }
     
-    ifstream bcs(bcfile.string().c_str(), std::ios::in|std::ios::binary);
+    ifstream bcs(bcfile.c_str(), std::ios::in|std::ios::binary);
     
     if (!bcs.good()) {
         cout << "Unable to open instance file" << endl;
@@ -207,17 +207,13 @@ int BES_receiver::restore() {
     
 }
 
-int BES_receiver::store(bool force) {
-    fs::path bcfile = get_instance_file(gid, "bes_receiver");
+int BES_receiver::store() {
+    string bcfile = instance_file();
     
-    if (fs::is_regular_file(bcfile) && !force) {
-        cout << "BES already stored" << endl;
-        return 0;
-    }
-    cout << "Storing BES to " << bcfile.string() << endl;
+    cout << "Storing BES to " << bcfile << endl;
     
     
-    ofstream os(bcfile.string().c_str(), std::ios::out|std::ios::binary);
+    ofstream os(bcfile.c_str(), std::ios::out|std::ios::binary);
     int version = 0;
     int element_size = element_length_in_bytes(PK->g);
     
@@ -248,11 +244,11 @@ int BES_receiver::store(bool force) {
     
 }
 
-string BES_receiver::instance_file() {
-    fs::path bcfile = get_instance_file(gid, "bes_receiver");
-    return bcfile.string();
-}
 
+string BES_receiver::instance_file() {
+    fs::path instance_path = get_instance_path("bes_receiver", gid);
+    return instance_path.string();
+}
 
 
 

@@ -34,9 +34,8 @@ public:
     
     /**
      * Store BES state to its instance file
-     * @param force Forces rewriting instance file
      */
-    int store(bool force);
+    int store();
     
     /**
      * Restores saved BES state

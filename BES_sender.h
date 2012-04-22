@@ -13,6 +13,10 @@
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/base_object.hpp>
 
+// filesystem
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 
 class BES_sender : public BES_base  {
     
@@ -75,9 +79,8 @@ public:
     
     /**
      * Store BES state to its instance file
-     * @param force Forces rewriting instance file
      */
-    int store(bool force);
+    int store();
     
     /**
      * Restores saved BES state

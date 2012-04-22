@@ -40,6 +40,23 @@ InstanceStorage::~InstanceStorage() {
     loaded_instances.clear();
 }
 
+FB::VariantMap InstanceStorage::get_stored_instances() {
+    FB::VariantMap keys;
+    for (boost::ptr_map<string,string>::iterator it = instances.begin(); it != instances.end(); ++it) {
+        FB::VariantMap instmap;
+        InstanceDescriptor *inst = instance_struct(it->first);
+        instmap["id"] = inst->id;
+        instmap["name"] = inst->name;
+        instmap["type"] = inst->type;
+        instmap["path"] = inst->path;
+        instmap["max_users"] = inst->max_users;        
+        keys[it->first] = instmap;
+    }
+    
+    return keys;
+}
+
+
 void InstanceStorage::store_instance(FB::JSObjectPtr params) {
     
     string id = params->GetProperty("id").convert_cast<std::string>();
@@ -49,6 +66,30 @@ void InstanceStorage::store_instance(FB::JSObjectPtr params) {
     
     InstanceDescriptor* instance = new InstanceDescriptor(id, name, type, max_users);
     instances.insert(id, instance);
+    InstanceStorage::archive(this);
+}
+
+void InstanceStorage::remove_instance(string id) {
+    
+    // Remove loaded instance
+    loaded_instances.erase(id);
+    
+    InstanceDescriptor *s = instance_struct(id);
+    
+    if (s) {
+        
+        string instance_path = s->path;
+        fs::path instance_file = fs::path(instance_path);
+        fs::path serialized_file = fs::path(instance_path + "_serialized");
+        fs::remove(instance_file);
+        fs::remove(serialized_file);
+        
+        // Remove instance descriptor
+        instances.erase(id);
+        
+        InstanceStorage::archive(this);
+    }
+    
 }
 
 template<typename InstanceType>
@@ -62,15 +103,15 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
     // else load instance, if existant
     InstanceDescriptor* s = instance_struct(id);
     
+    BES_base *instance = NULL;
     if (s && fs::is_regular_file(s->path)) {
         string serialized_class = s->path + "_serialized";
         std::ifstream ifs(serialized_class.c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);
         
-        BES_base *instance;
-        
+
         switch (s->type) {
-            case BROADMASK_INSTANCE_SENDER:                
+            case BROADMASK_INSTANCE_BES_SENDER:                
                 // Restore instance class itself
                 instance = new BES_sender;
                 ia >> *((BES_sender*)instance);
@@ -81,9 +122,8 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
                 // Cache instance
                 loaded_instances.insert(s->id, instance);
                 
-                return dynamic_cast<InstanceType*>(instance);
                 break;
-            case BROADMASK_INSTANCE_RECEIVER:
+            case BROADMASK_INSTANCE_BES_RECEIVER:
                 // Restore instance class itself
                 ia >> *((BES_receiver*)instance);
                 
@@ -92,59 +132,87 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
                 
                 // Cache instance
                 loaded_instances.insert(s->id, instance);
-                return dynamic_cast<InstanceType*>(instance);
                 break;
             default: 
                 cerr << "Unknown InstanceDescriptor type" << s << endl;
-                return NULL;
                 break;
         }
-    } else {
-        return NULL;
     }
-    
+    return dynamic_cast<InstanceType*>(instance);
 }
 
-FB::VariantMap InstanceStorage::start_sender_instance(string id, string name, int N) {
+template<typename InstanceType>
+void InstanceStorage::storeInstance(InstanceType *instance) {
     
-    BES_sender* instance = load_instance<BES_sender>(id);
-    stringstream params;
-    FB::VariantMap result;
+    // Only derived classes of BES_base
+    (void)static_cast<BES_base*>((InstanceType*)0);
     
-    
-    // check for cached instance
-    if (instance) {
-        cout << "Sending Instance " << id << " is already loaded" << endl;
-        instance->public_params_to_stream(params);
-        result["parameters"] = base64_encode(params.str());
-        result["is_cached"] = true;
-        return result;
-    }
-    
-    // start new instance
-    InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_SENDER, N);
-    instance = new BES_sender(id, N);
-    loaded_instances.insert(id, instance);
-        
     // Store BES system
-    instance->store(true);
+    instance->store();
     
     // Store Instance 
-    string classpath(desc->path);
+    string classpath = instance->instance_file();
     classpath += "_serialized";
     
     std::ofstream ofs(classpath.c_str());
     boost::archive::text_oarchive oa(ofs);
     oa << *(instance);
     
+}
+
+string InstanceStorage::start_sender_instance(string id, string name, int N) {
+    
+    BES_sender* instance = load_instance<BES_sender>(id);
+    stringstream params;
+    
+    
+    // check for cached instance
+    if (instance) {
+        cout << "Sending Instance " << id << " is already loaded" << endl;
+        instance->public_params_to_stream(params);
+        return base64_encode(params.str());
+    }
+    
+    // record instance
+    InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_BES_SENDER, N);
+    instances.insert(id, desc);
+    
+    // create and store instance
+    instance = new BES_sender(id, N);
+    loaded_instances.insert(id, instance);        
+    storeInstance<BES_sender>(instance);
+    InstanceStorage::archive(this);
+
     instance->public_params_to_stream(params);
 
-    result["parameters"] = base64_encode(params.str());
-    result["is_cached"] = false;
-    return result;
+    return base64_encode(params.str());
     
 }
 
+void InstanceStorage::start_receiver_instance(string id, string name, int N, string pubdata_b64, string private_key_b64) {
+    BES_receiver* instance = load_instance<BES_receiver>(id);
+    
+    // check for cached instance
+    if (instance) {
+        cout << "Receiving Instance " << id << " is already loaded" << endl;
+        return;
+    }
+    
+    // record instance
+    InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_BES_RECEIVER, N);
+    instances.insert(id, desc);
+    
+    // decode params
+    string public_params = base64_decode(pubdata_b64);
+    string private_key = base64_decode(private_key_b64);
+    
+    // Create and store instance
+    instance = new BES_receiver(id, N, public_params, private_key);    
+    loaded_instances.insert(id, instance);    
+    storeInstance<BES_receiver>(instance);
+    InstanceStorage::archive(this);
+    
+}
 
 
 
@@ -165,7 +233,12 @@ FB::VariantMap InstanceStorage::instance_description(std::string id) {
 }
 
 InstanceDescriptor* InstanceStorage::instance_struct(std::string id) {
-    return &(instances.at(id));    
+    boost::ptr_map<string, InstanceDescriptor>::iterator it = instances.find(id);
+    
+    if (it != instances.end())
+        return it->second;
+    else 
+        return NULL;
 }
 
 int InstanceStorage::instance_type(std::string id) {
@@ -179,40 +252,32 @@ int InstanceStorage::instance_type(std::string id) {
 }
 
 
-
-
-
-
-
 void InstanceStorage::archive(InstanceStorage *is) {
     fs::path storage = broadmask_root() / "instancestorage";
-    if (fs::is_regular_file(storage)) {
-        std::ofstream ofs(storage.string().c_str(), std::ios::out);
-        boost::archive::text_oarchive oa(ofs);
-        
-        try {
-            oa << *is;
-        } catch (exception& e) {
-            cout << e.what() << endl;
-        }    
-    }
+    std::ofstream ofs(storage.string().c_str(), std::ios::out);
+    boost::archive::text_oarchive oa(ofs);
+    
+    try {
+        oa << *is;
+    } catch (exception& e) {
+        cout << e.what() << endl;
+    }    
 }
 
 InstanceStorage* InstanceStorage::unarchive() {
     fs::path storage = broadmask_root() / "instancestorage";
+    InstanceStorage *is = new InstanceStorage();
+
     if (fs::is_regular_file(storage)) {
         std::ifstream ifs(storage.string().c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);
         
         try {
-            InstanceStorage *is = new InstanceStorage();
             ia >> *is;
             return is;
         } catch (exception& e) {
             cout << e.what() << endl;
-            return NULL;
         }
-    } else {
-        return NULL;
     }
+    return is;
 }

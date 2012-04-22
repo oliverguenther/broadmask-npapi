@@ -22,9 +22,19 @@
  */
 
 #include "UserStorage.hpp"
+#include "utils.h"
+
 #include "boost/lexical_cast.hpp"
 
+// filesystem
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+#include <fstream>
+
+
 using namespace std;
+namespace fs = boost::filesystem;
+
 
 
 UserStorage::UserStorage() {
@@ -439,4 +449,33 @@ string UserStorage::get_status_str (gpgme_error_t& e) {
             return "UNKNOWN";
             break;
     }
+}
+
+void UserStorage::archive(UserStorage *us) {
+    fs::path storage = broadmask_root() / "userstorage";
+    std::ofstream ofs(storage.string().c_str(), std::ios::out);
+    boost::archive::text_oarchive oa(ofs);
+    
+    try {
+        oa << *us;
+    } catch (exception& e) {
+        cout << e.what() << endl;
+    }    
+}
+
+UserStorage* UserStorage::unarchive() {
+    UserStorage *ustore = new UserStorage();
+    fs::path storage = broadmask_root() / "userstorage";
+    if (fs::is_regular_file(storage)) {
+        std::ifstream ifs(storage.string().c_str(), std::ios::in);
+        boost::archive::text_iarchive ia(ifs);
+        
+        try {
+            ia >> *ustore;
+        } catch (exception& e) {
+            cout << e.what() << endl;
+        }
+    }
+    
+    return ustore;
 }

@@ -9,6 +9,10 @@
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 
+// filesystem
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
 // resolves gmp c++ related linking errors
 // 'declaration of C function 'std::ostream& operator<<(std::ostream&, const __mpq_struct*)' conflicts with ..'
 
@@ -56,15 +60,15 @@ public:
 
     /**
      * Store BES state to its instance file
-     * @param force Forces rewriting instance file
      */
-    virtual int store(bool force) = 0;
+    virtual int store() = 0;
     
     /**
      * Restores saved BES state
-     * @return 0 if successful, 1 otherwise
      */
     virtual int restore() = 0;
+    
+    virtual std::string instance_file() = 0;
     
     
     void element_from_stream(element_t el, std::istream& is, int numbytes);
