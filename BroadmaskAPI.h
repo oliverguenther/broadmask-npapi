@@ -1,8 +1,5 @@
-/**********************************************************\
-
-  Auto-generated BroadmaskAPI.h
-
-\**********************************************************/
+#ifndef H_BroadmaskAPI
+#define H_BroadmaskAPI
 
 #include <string>
 #include <sstream>
@@ -14,9 +11,9 @@
 
 #include "BrowserHost.h"
 #include "Broadmask.h"
-#include "BES_base.h"
-#include "BES_sender.h"
-#include "BES_receiver.h"
+#include "Instance.hpp"
+#include "BES_sender.hpp"
+#include "BES_receiver.hpp"
 #include "Base64.h"
 #include "UserStorage.hpp"
 #include "InstanceStorage.hpp"
@@ -26,24 +23,10 @@
 
 
 
-#ifndef H_BroadmaskAPI
-#define H_BroadmaskAPI
-
-
-class BroadmaskAPI : public FB::JSAPIAuto
-{
+class BroadmaskAPI : public FB::JSAPIAuto {
 public:
     BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host);
-
-    ///////////////////////////////////////////////////////////////////////////////
-    /// @fn BroadmaskAPI::~BroadmaskAPI()
-    ///
-    /// @brief  Destructor.  Remember that this object will not be released until
-    ///         the browser is done with it; this will almost definitely be after
-    ///         the plugin is released.
-    ///////////////////////////////////////////////////////////////////////////////
     virtual ~BroadmaskAPI() {};
-
     BroadmaskPtr getPlugin();
     
     
@@ -198,11 +181,6 @@ private:
     BroadmaskWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;
     
-    std::map<std::string, BES_sender> sending_groups;
-    std::map<std::string, BES_receiver> receiving_groups;
-    
-    BES_sender* get_sender_instance(std::string gid);
-    BES_receiver* get_receiver_instance(std::string gid);
     
     UserStorage *ustore;
     InstanceStorage *istore;

@@ -4,7 +4,8 @@
 #include <map>
 #include <deque>
 #include <vector>
-#include "BES_base.h"
+#include "Instance.hpp"
+#include "bes_streams.hpp"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
@@ -18,11 +19,11 @@
 #include <boost/filesystem/path.hpp>
 
 
-class BES_sender : public BES_base  {
+class BES_sender : public Instance  {
     
 public: 
     // Required for (De-)Serialization
-    BES_sender() : BES_base() {}
+    BES_sender() : Instance() {}
     BES_sender(std::string gid, int num_users);    
     
     BES_sender(const BES_sender&);
@@ -87,9 +88,21 @@ public:
      * @return 0 if successful, 1 otherwise
      */
     int restore();
+    
+    /**
+     * BES public global params
+     */
+    bes_global_params_t gbs;
         
     
 private:
+    
+    
+    /**
+     * Max users
+     */
+    int N;
+    
     /**
      * BES encryption scheme
      */
@@ -121,7 +134,7 @@ private:
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
-        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<BES_base>(*this));
+        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & N;
         ar & gid;
         ar & users;

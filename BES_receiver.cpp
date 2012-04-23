@@ -1,4 +1,4 @@
-#include "BES_receiver.h"
+#include "BES_receiver.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -49,7 +49,7 @@ namespace fs = boost::filesystem;
 using namespace std;
 
 
-BES_receiver::BES_receiver(string groupid, int N, string public_data, string private_key) : BES_base(groupid, N) {
+BES_receiver::BES_receiver(string groupid, int max_users, string public_data, string private_key) : Instance(groupid) {
     
     cout << "Setting up " << gid << " as decryption system" << endl;    
     
@@ -60,14 +60,19 @@ BES_receiver::BES_receiver(string groupid, int N, string public_data, string pri
     public_params >> keylen;
     public_params.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
+    N = max_users;
+    
+    
+    setup_global_system(&gbs, params, N);
+    
     
     // Read public key
-    public_key_from_stream(&PK, public_params, element_size);
+    public_key_from_stream(&PK, gbs, public_params, element_size);
     
     // Read private key
     istringstream skss(private_key);    
     
-    private_key_from_stream(&SK, skss, element_size);
+    private_key_from_stream(&SK, gbs, skss, element_size);
 }
 
 BES_receiver::BES_receiver(const BES_receiver& b) {
@@ -178,19 +183,19 @@ int BES_receiver::restore() {
     // Public Key
     PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
-    element_from_stream(PK->g, bcs, element_size);
+    element_from_stream(PK->g, gbs, bcs, element_size);
     
     int i;
     // g_i
     PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
     for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(PK->g_i[i], bcs, element_size);
+        element_from_stream(PK->g_i[i], gbs, bcs, element_size);
     }
     
     // v_i
     PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
     for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(PK->v_i[i], bcs, element_size);
+        element_from_stream(PK->v_i[i], gbs, bcs, element_size);
     }
     
     
@@ -199,7 +204,7 @@ int BES_receiver::restore() {
     
     SK->id = sk_id;
     
-    element_from_stream(SK->privkey, bcs, element_size);
+    element_from_stream(SK->privkey, gbs, bcs, element_size);
     
     return 0;
     

@@ -48,22 +48,6 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 
-BES_sender* BroadmaskAPI::get_sender_instance(string gid) {
-    map<string,BES_sender>::iterator it = sending_groups.find(gid);
-    if (it != sending_groups.end())
-        return &(it->second);
-    else
-        return NULL;
-}
-
-BES_receiver* BroadmaskAPI::get_receiver_instance(string gid) {
-    map<string,BES_receiver>::iterator it = receiving_groups.find(gid);
-    if (it != receiving_groups.end())
-        return &(it->second);
-    else
-        return NULL;
-}
-
 string BroadmaskAPI::create_sender_instance(string gid, string name, int N) {
     return istore->start_sender_instance(gid, name, N);
 }
@@ -77,7 +61,7 @@ void BroadmaskAPI::remove_instance(string id) {
 }
 
 std::string BroadmaskAPI::get_member_sk(string gid, string id) {
-    BES_sender *bci = get_sender_instance(gid);
+    BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
         return "";
@@ -90,13 +74,13 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
     }
     
     stringstream oss;
-    bci->private_key_to_stream(sk, oss);
+    private_key_to_stream(sk, oss);
     return base64_encode(oss.str());
     
 }
 
 int BroadmaskAPI::add_member(string gid, string id) {
-    BES_sender *bci = get_sender_instance(gid);
+    BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
         return -1;
@@ -109,7 +93,7 @@ int BroadmaskAPI::add_member(string gid, string id) {
 }
 
 void BroadmaskAPI::remove_member(std::string gid, std::string id) {
-    BES_sender *bci = get_sender_instance(gid);
+    BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (bci) {
         bci->remove_member(id);
 //        bci->store(true);
@@ -117,7 +101,7 @@ void BroadmaskAPI::remove_member(std::string gid, std::string id) {
 }
 
 string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
-    BES_sender *bci = get_sender_instance(gid);
+    BES_sender *bci = istore->load_instance<BES_sender>(gid);
     
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
@@ -129,7 +113,7 @@ string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>
     
     stringstream ctos;
     string ct_b64;
-    bci->ciphertext_to_stream(ct, ctos);    
+    ciphertext_to_stream(ct, bci->gbs, ctos);    
     // Encode to Base64
     ct_b64 = base64_encode(ctos.str());
     
@@ -192,7 +176,7 @@ string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
 }
  
 string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
-    BES_receiver *bci = get_receiver_instance(gid);
+    BES_receiver *bci = istore->load_instance<BES_receiver>(gid);
     
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
@@ -211,7 +195,7 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
     stringstream ctss(ct_str);
             
     bes_ciphertext_t ct;
-    bci->ciphertext_from_stream(&ct, ctss);
+    ciphertext_from_stream(&ct, bci->gbs, ctss);
     
     return bci->bes_decrypt(ct);
 }
@@ -358,17 +342,20 @@ void BroadmaskAPI::test(const FB::JSObjectPtr &callback) {
 
 void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     cout << "starting testcase" << endl;
-    create_sender_instance("1",  "testsuite_instance", 256);
+    create_sender_instance("foo",  "testsuite_instance", 256);
 
-    BES_sender *sender = get_sender_instance("foo");       
-    if (!sender)
+    BES_sender *sender = istore->load_instance<BES_sender>("foo");       
+    if (!sender) {
         cout << "Sender instance foo should have been started, but wasn't" << endl;
+        return;
+    }
     
     int add1 = add_member("foo", "1");
     int add2 = add_member("foo", "1");
     
     if (add1 != add2) {
         cout << "Inserted IDs were " << add1 << " and " << add2 << " , which are not equal" << endl;
+        return;
     }
     
     
@@ -383,8 +370,13 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
      if (sender->member_id("1") != -1)
          cout << "Member '1' was not removed" << endl;
     
+    istore->remove_instance("foo");
+    sender = istore->load_instance<BES_sender>("foo");
+    if (sender != NULL)
+        cout << "sender instance not deleted" << endl;
+    
     boost::timer total;
-    string foo_pub_params = create_sender_instance("1", "test_instance", 256);
+    string foo_pub_params = create_sender_instance("test", "test_instance", 256);
     cout << "Setup phase: " << total.elapsed() << endl;
 
     vector<string> s;
@@ -447,12 +439,20 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
     
     cout << "Total time elapsed: " << total.elapsed() << endl;
     
-    sending_groups.erase("test");
-    
-    sender = get_sender_instance("test");
+    istore->remove_instance("test");
+    sender = istore->load_instance<BES_sender>("test");
     if (sender != NULL)
         cout << "sender instance not deleted" << endl;
     
+    for (int i = 0; i < 256; ++i) {
+        string receiver = boost::lexical_cast<string>(i);
+        istore->remove_instance(receiver);
+        
+        if(istore->load_instance<BES_sender>(receiver))
+            cout << "Receiver instance " << receiver << " not deleted " << endl;
+        
+    }
+
     
     callback->InvokeAsync("", FB::variant_list_of("it worked"));
 

@@ -2,7 +2,14 @@
 #define H_BES_RECEIVER
 
 #include <map>
-#include "BES_base.h"
+#include "Instance.hpp"
+#include "bes_streams.hpp"
+
+#include <gmpxx.h>
+
+extern "C" {
+#include "PBC_bes/pbc_bes.h"
+}
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
@@ -12,11 +19,11 @@
 #include <boost/serialization/base_object.hpp>
 
 
-class BES_receiver : public BES_base  {
+class BES_receiver : public Instance  {
     
 public: 
     // Required for De-Serialization
-    BES_receiver() : BES_base() {}
+    BES_receiver() : Instance() {}
     BES_receiver(std::string groupid, int N, std::string public_data, std::string private_key);
     
     BES_receiver(const BES_receiver&);
@@ -45,8 +52,18 @@ public:
     
     std::string instance_file();
 
+    /**
+     * BES global params
+     */
+    bes_global_params_t gbs;
     
 private:
+    
+    
+    /**
+     * Max users
+     */
+    int N;
     
     bes_privkey_t SK;
     
@@ -64,7 +81,7 @@ private:
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
-        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<BES_base>(*this));
+        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & N;
         ar & gid;
         ar & keylen;

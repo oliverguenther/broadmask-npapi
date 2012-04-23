@@ -1,4 +1,4 @@
-#include "BES_sender.h"
+#include "BES_sender.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -46,8 +46,14 @@ struct inc_index {
     int operator()() {return cur++;}
 } FillIndex;
 
-BES_sender::BES_sender(string gid, int num_users) : BES_base(gid, num_users) {
-    cout << "Setting up " << gid << " as encryption system" << endl;    
+BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
+    cout << "Setting up " << gid << " as encryption system" << endl;
+    
+    
+    N = num_users;
+    setup_global_system(&gbs, params, num_users);
+    
+    
     setup(&sys, gbs);
     
     // Initially, all ids are available
@@ -119,7 +125,7 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
     os << element_size << " ";
     os << kDerivedKeysize << "\n";
     
-    public_key_to_stream(sys->PK, os);
+    public_key_to_stream(sys->PK, gbs, os);
 }
     
 
@@ -238,25 +244,25 @@ int BES_sender::restore() {
     // Public Key
     sys->PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
-    element_from_stream(sys->PK->g, bcs, element_size);
+    element_from_stream(sys->PK->g, gbs, bcs, element_size);
     
     int i;
     // g_i
     sys->PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
     for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(sys->PK->g_i[i], bcs, element_size);
+        element_from_stream(sys->PK->g_i[i], gbs, bcs, element_size);
     }
     
     // v_i
     sys->PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
     for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(sys->PK->v_i[i], bcs, element_size);
+        element_from_stream(sys->PK->v_i[i], gbs, bcs, element_size);
     }
     
     // Store private keys
     sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));        
     for (i = 0; i < (int) N; ++i) {
-        element_from_stream(sys->d_i[i], bcs, element_size);
+        element_from_stream(sys->d_i[i], gbs, bcs, element_size);
     }
     
     return 0;

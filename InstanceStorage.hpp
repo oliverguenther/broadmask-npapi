@@ -30,9 +30,9 @@
 #include "utils.h"
 
 // BES types
-#include "BES_base.h"
-#include "BES_receiver.h"
-#include "BES_sender.h"
+#include "Instance.hpp"
+#include "BES_receiver.hpp"
+#include "BES_sender.hpp"
 
 // ptr
 #include <boost/ptr_container/ptr_map.hpp>
@@ -162,11 +162,7 @@ public:
     
     static void archive(InstanceStorage *storage);
     static InstanceStorage* unarchive();
-
-   
-    
-
-    
+ 
     
 private:
     
@@ -174,7 +170,7 @@ private:
     boost::ptr_map<std::string, InstanceDescriptor> instances;
 
     // Loaded instances
-    boost::ptr_map<std::string, BES_base> loaded_instances;
+    boost::ptr_map<std::string, Instance> loaded_instances;
     
     // get internal instance description
     InstanceDescriptor* instance_struct(std::string id);

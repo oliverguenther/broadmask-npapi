@@ -1,8 +1,4 @@
-/* Broadmask
- * BES_base.cpp
- */
-
-#include "BES_base.h"
+#include "bes_streams.hpp"
 #include <iostream>
 
 #include <cryptopp/aes.h>
@@ -10,30 +6,7 @@ using CryptoPP::AES;
 
 using namespace std;
 
-const char* BES_base::params = 
-"type a\n"
-"q 8780710799663312522437781984754049815806883199414208211028653399266475630880222957078625179422662221423155858769582317459277713367317481324925129998224791\n"
-"h 12016012264891146079388821366740534204802954401251311822919615131047207289359704531102844802183906537786776\n"
-"r 730750818665451621361119245571504901405976559617\n"
-"exp2 159\n"
-"exp1 107\n"
-"sign1 1\n"
-"sign0 1";
-
-BES_base::BES_base() {}
-
-BES_base::BES_base(string groupID, int num_users) {
-    gid = groupID;
-    N = num_users;
-    
-    
-    // Setup global params
-    setup_global_system(&gbs, params, N);
-    
-}
-
-
-void BES_base::element_from_stream(element_t el, std::istream& is, int numbytes) {    
+void element_from_stream(element_t el, bes_global_params_t gbs, std::istream& is, int numbytes) {    
     unsigned char buf[numbytes];    
     is.read(reinterpret_cast<char*>(buf), numbytes);
     element_init_G1(el, gbs->pairing);
@@ -41,7 +14,7 @@ void BES_base::element_from_stream(element_t el, std::istream& is, int numbytes)
     
 }
 
-void BES_base::element_to_stream(element_t el, std::ostream& os) {
+void element_to_stream(element_t el, std::ostream& os) {
     int numbytes = element_length_in_bytes(el);
     unsigned char buf[numbytes];
     element_to_bytes(buf, el);
@@ -49,7 +22,7 @@ void BES_base::element_to_stream(element_t el, std::ostream& os) {
     
 }
 
-void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
+void ciphertext_from_stream(bes_ciphertext_t* ct, bes_global_params_t gbs, istream& is) {
     bes_ciphertext_t cipher = (bes_ciphertext_t) malloc(sizeof(bes_ciphertext_s));
     
     int version, element_size;
@@ -69,7 +42,7 @@ void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     cipher->HDR = (element_t*) pbc_malloc((gbs->A + 1) * sizeof(element_t));
     for (int i = 0; i < (gbs->A + 1); ++i) {
-        element_from_stream(cipher->HDR[i], is, element_size);
+        element_from_stream(cipher->HDR[i], gbs, is, element_size);
     }
     
     cipher->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
@@ -82,7 +55,7 @@ void BES_base::ciphertext_from_stream(bes_ciphertext_t* ct, istream& is) {
 
 }
 
-void BES_base::ciphertext_to_stream(bes_ciphertext_t ct, ostream& os) {
+void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, ostream& os) {
     int version = 0;
     int element_size = element_length_in_bytes(ct->HDR[0]);
 
@@ -111,30 +84,30 @@ void BES_base::ciphertext_to_stream(bes_ciphertext_t ct, ostream& os) {
     os.write(reinterpret_cast<char*>(ct->ct), ct->ct_length);
 }
 
-void BES_base::public_key_from_stream(pubkey_t *pubkey_p, std::istream& is, int element_size) {
+void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::istream& is, int element_size) {
     
     pubkey_t PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
     // g
-    element_from_stream(PK->g, is, element_size);
+    element_from_stream(PK->g, gbs, is, element_size);
     
     int i;
     // g_i
     PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
     for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(PK->g_i[i], is, element_size);
+        element_from_stream(PK->g_i[i], gbs, is, element_size);
     }
     
     // v_i
     PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
     for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(PK->v_i[i], is, element_size);
+        element_from_stream(PK->v_i[i], gbs, is, element_size);
     }
     
     *pubkey_p = PK;
 }
 
-void BES_base::public_key_to_stream(pubkey_t PK, std::ostream& os) {
+void public_key_to_stream(pubkey_t PK, bes_global_params_t gbs, std::ostream& os) {
 
     // g
     element_to_stream(PK->g, os);
@@ -152,29 +125,20 @@ void BES_base::public_key_to_stream(pubkey_t PK, std::ostream& os) {
         
 }
 
-void BES_base::private_key_from_stream(bes_privkey_t *privkey, std::istream& is, int element_size) {
+void private_key_from_stream(bes_privkey_t *privkey, bes_global_params_t gbs, std::istream& is, int element_size) {
     
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
 
     is >> sk->id;
     
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    element_from_stream(sk->privkey, is, element_size);
+    element_from_stream(sk->privkey, gbs, is, element_size);
     
     *privkey = sk;
 }
 
-void BES_base::private_key_to_stream(bes_privkey_t sk, std::ostream& os) {
+void private_key_to_stream(bes_privkey_t sk, std::ostream& os) {
     os << sk->id << "\n";
     
     element_to_stream(sk->privkey, os);
-}
-
-
-string BES_base::groupid() { 
-	return gid;
-}
-
-int BES_base::num_users() {
-	return N;
 }

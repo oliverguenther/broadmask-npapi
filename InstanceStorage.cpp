@@ -94,7 +94,7 @@ void InstanceStorage::remove_instance(string id) {
 
 template<typename InstanceType>
 InstanceType* InstanceStorage::load_instance(std::string id) {
-    boost::ptr_map<string, BES_base>::iterator it = loaded_instances.find(id);
+    boost::ptr_map<string, Instance>::iterator it = loaded_instances.find(id);
     
     // test if instance is loaded already
     if (it != loaded_instances.end())
@@ -103,7 +103,7 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
     // else load instance, if existant
     InstanceDescriptor* s = instance_struct(id);
     
-    BES_base *instance = NULL;
+    Instance *instance = NULL;
     if (s && fs::is_regular_file(s->path)) {
         string serialized_class = s->path + "_serialized";
         std::ifstream ifs(serialized_class.c_str(), std::ios::in);
@@ -144,8 +144,8 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
 template<typename InstanceType>
 void InstanceStorage::storeInstance(InstanceType *instance) {
     
-    // Only derived classes of BES_base
-    (void)static_cast<BES_base*>((InstanceType*)0);
+    // Only derived classes of Instance
+    (void)static_cast<Instance*>((InstanceType*)0);
     
     // Store BES system
     instance->store();
