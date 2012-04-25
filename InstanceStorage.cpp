@@ -133,6 +133,11 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
                 // Cache instance
                 loaded_instances.insert(s->id, instance);
                 break;
+            case BROADMASK_INSTANCE_SK:
+                instance = new SK_Instance;
+                ia >> *((SK_Instance*) instance);
+                loaded_instances.insert(s->id, instance);
+                break;
             default: 
                 cerr << "Unknown InstanceDescriptor type" << s << endl;
                 break;
@@ -214,6 +219,14 @@ void InstanceStorage::start_receiver_instance(string id, string name, int N, str
     
 }
 
+void InstanceStorage::start_shared_instance(std::string id, std::string name) {
+    SK_Instance* instance = load_instance<SK_Instance>(id);
+    
+    if (instance) {
+        cout << "Shared instance " << id << " is already loaded" << endl;
+        return;
+    }
+}
 
 
 
@@ -280,4 +293,9 @@ InstanceStorage* InstanceStorage::unarchive() {
         }
     }
     return is;
+}
+
+string SK_Instance::instance_file() {
+    fs::path instance_path = get_instance_path("shared_key", gid);
+    return instance_path.string();
 }

@@ -29,10 +29,12 @@
 
 #include "utils.h"
 
-// BES types
+// Instance types
 #include "Instance.hpp"
 #include "BES_receiver.hpp"
 #include "BES_sender.hpp"
+#include "SK_Instance.hpp"
+
 
 // ptr
 #include <boost/ptr_container/ptr_map.hpp>
@@ -159,6 +161,7 @@ public:
     
     std::string start_sender_instance(std::string id, std::string name, int N);
     void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);
+    void start_shared_instance(std::string id, std::string name);
     
     static void archive(InstanceStorage *storage);
     static InstanceStorage* unarchive();

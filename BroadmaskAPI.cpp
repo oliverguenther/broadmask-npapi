@@ -56,6 +56,10 @@ void BroadmaskAPI::create_receiver_instance(string gid, string name, int N, stri
     istore->start_receiver_instance(gid, name, N, pubdata_b64, private_key_b64);
 }
 
+void BroadmaskAPI::create_shared_instance(string gid, string name) {
+    istore->start_shared_instance(gid, name);
+}
+
 void BroadmaskAPI::remove_instance(string id) {
     istore->remove_instance(id);
 }
@@ -290,6 +294,7 @@ BroadmaskAPI::BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr&
 m_plugin(plugin), m_host(host) {
     registerMethod("create_sender_instance", make_method(this, &BroadmaskAPI::create_sender_instance));
     registerMethod("create_receiver_instance", make_method(this, &BroadmaskAPI::create_receiver_instance));
+    registerMethod("create_shared_instance", make_method(this, &BroadmaskAPI::create_shared_instance));
     registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
     registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
     registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        

@@ -16,8 +16,10 @@ public:
     Instance() {};
     Instance(std::string id) : gid(id) {};
     
+    virtual ~Instance() {};
     
-    std::string id() {
+    
+    inline std::string id() {
         return gid;
     }
     

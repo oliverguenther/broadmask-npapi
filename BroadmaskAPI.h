@@ -46,6 +46,8 @@ public:
      * @brief Create or resume a receiver decryption system for the given groupid
      */
     void create_receiver_instance(std::string gid, std::string name, int N, std::string params, std::string private_key);
+    
+    void create_shared_instance(std::string gid, std::string name);
 
     
     /**
