@@ -8,6 +8,7 @@
 #include <fstream>
 #include <sstream>
 #include <cmath>
+#include <iomanip>
 
 #include <boost/timer.hpp>
 #include <boost/filesystem/operations.hpp>
@@ -48,23 +49,23 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 
-string BroadmaskAPI::create_sender_instance(string gid, string name, int N) {
+std::string BroadmaskAPI::create_sender_instance(std::string gid, std::string name, int N) {
     return istore->start_sender_instance(gid, name, N);
 }
 
-void BroadmaskAPI::create_receiver_instance(string gid, string name, int N, string pubdata_b64, string private_key_b64) {
+void BroadmaskAPI::create_receiver_instance(std::string gid, std::string name, int N, std::string pubdata_b64, std::string private_key_b64) {
     istore->start_receiver_instance(gid, name, N, pubdata_b64, private_key_b64);
 }
 
-void BroadmaskAPI::create_shared_instance(string gid, string name) {
+void BroadmaskAPI::create_shared_instance(std::string gid, std::string name) {
     istore->start_shared_instance(gid, name);
 }
 
-void BroadmaskAPI::remove_instance(string id) {
+void BroadmaskAPI::remove_instance(std::string id) {
     istore->remove_instance(id);
 }
 
-std::string BroadmaskAPI::get_member_sk(string gid, string id) {
+std::string BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
@@ -77,13 +78,13 @@ std::string BroadmaskAPI::get_member_sk(string gid, string id) {
         return "";
     }
     
-    stringstream oss;
+    std::stringstream oss;
     private_key_to_stream(sk, oss);
     return base64_encode(oss.str());
     
 }
 
-int BroadmaskAPI::add_member(string gid, string id) {
+int BroadmaskAPI::add_member(std::string gid, std::string id) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (!bci) {
         cout << "Sender instance " << gid << " not found" << endl;
@@ -104,7 +105,7 @@ void BroadmaskAPI::remove_member(std::string gid, std::string id) {
     }
 }
 
-string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
+std::string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     
     if (!bci) {
@@ -115,8 +116,8 @@ string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>
     bes_ciphertext_t ct;
     bci->bes_encrypt(&ct, receivers, data);
     
-    stringstream ctos;
-    string ct_b64;
+    std::stringstream ctos;
+    std::string ct_b64;
     ciphertext_to_stream(ct, bci->gbs, ctos);    
     // Encode to Base64
     ct_b64 = base64_encode(ctos.str());
@@ -125,61 +126,69 @@ string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>
         vector<unsigned char> b64data, b64padded;
         vector_from_string(b64data, ct_b64);
         b64padded = encodeImage(b64data);
-        ofstream os;
-        os.open("/Users/oliver/Desktop/encoded.bmp", ios::binary);
-        ostreambuf_iterator<char> os_it(os);
-        copy (b64padded.begin(), b64padded.end(), os_it);
-        os.close();
         return base64_encode(b64padded);
 
     }
     return ct_b64;
 }
 
-string BroadmaskAPI::sk_encrypt_b64(std::string data, bool image) {
-    unsigned char key[32];
-    unsigned char iv[AES::BLOCKSIZE];
-    
-    AutoSeededRandomPool prng;
-    
-	prng.GenerateBlock(key, sizeof(key));
-	prng.GenerateBlock(iv, sizeof(iv));
-    
-    try {
-		CFB_Mode< AES >::Encryption enc;
-		enc.SetKeyWithIV(key, sizeof(key), iv, AES::BLOCKSIZE);
-        string cipher;
-		StringSource(data, true, new StreamTransformationFilter(enc, new StringSink(cipher)));
-        
-        stringstream json;
-        stringstream b64os;
-        json << "{";
-        json << "\"iv\": \"";
-        for (int i = 0; i < AES::BLOCKSIZE; ++i) {
-            b64os << iv[i];
-        }
-        json << base64_encode(b64os.str());
-        b64os.clear();
-        b64os.str(std::string());
-        json << "\",\"key\": \"";
-        for (int i = 0; i < 32; ++i) {
-            b64os << key[i];
-        }
-        json << base64_encode(b64os.str());
-        json << "\", \"ct\": \"";
-        json << base64_encode(cipher);
-        json << "\"}";
-        
-        
-        return json.str();
+FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, bool image) {
+    SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
 
-	} catch(const CryptoPP::Exception& e) {
-		cerr << e.what() << endl;
-        return "{}";
-	}
+    FB::VariantMap result;
+
+    if (!ski) {
+        cout << "Shared Instance " << gid << " not found ";
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        return result;
+    }
+    
+    result = ski->encrypt(data);
+    
+    if (image && (result.find("ciphertext") != result.end())) {
+        vector<unsigned char> b64data, b64padded;
+        vector_from_string(b64data, result["ciphertext"].convert_cast<std::string>());
+        b64padded = encodeImage(b64data);
+        result["ciphertext"] = base64_encode(std::string(b64padded.begin(), b64padded.end()));
+    }
+    
+    return result;
+    
+    
+    
+}
+
+FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, FB::JSObjectPtr params, bool image) {
+    SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
+    
+    FB::VariantMap result;
+    
+    if (!ski) {
+        cout << "Shared Instance " << gid << " not found ";
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        return result;
+    }
+    
+    if (image) {
+        FB::variant v = params->GetProperty("ciphertext");
+        std::string ct_padded_b64 = v.cast<std::string>();
+        cout << endl << ct_padded_b64 << endl;
+        std::string ct_padded = base64_decode(ct_padded_b64);
+        vector<unsigned char> b64padded,b64data;
+        vector_from_string(b64padded, ct_padded);
+        b64data = decodeImage(b64padded);
+        std::string ct = string(b64data.begin(), b64data.end());
+        
+        params->SetProperty("ciphertext", ct);
+        
+    }
+    
+    return ski->decrypt(params);
 }
  
-string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
+std::string BroadmaskAPI::decrypt_b64(std::string gid, std::string ct_data, bool image) {
     BES_receiver *bci = istore->load_instance<BES_receiver>(gid);
     
     if (!bci) {
@@ -187,16 +196,16 @@ string BroadmaskAPI::decrypt_b64(string gid, string ct_data, bool image) {
         return "";
     }
     
-    string ct_str = ct_data;
+    std::string ct_str = ct_data;
     if (image) {
         vector<unsigned char> b64padded,b64data;
         vector_from_string(b64padded, ct_data);
         b64data = decodeImage(b64data);
-        ct_str = string(b64data.begin(), b64data.end());
+        ct_str = std::string(b64data.begin(), b64data.end());
         
     }
     ct_str = base64_decode(ct_str);
-    stringstream ctss(ct_str);
+    std::stringstream ctss(ct_str);
             
     bes_ciphertext_t ct;
     ciphertext_from_stream(&ct, bci->gbs, ctss);
@@ -247,15 +256,15 @@ FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
     return ustore->associatedKeys();
 }
 
-FB::VariantMap BroadmaskAPI::gpg_import_key(string data, bool iskeyblock) {
+FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock) {
     if (iskeyblock)
         return ustore->import_key_block(data);
     else
         return ustore->search_key(data);
 }
 
-FB::VariantMap BroadmaskAPI::get_member_sk_gpg(string gid, string sysid) {
-    string user_sk = get_member_sk(gid, sysid);
+FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
+    std::string user_sk = get_member_sk(gid, sysid);
     
     FB::VariantMap result;
     if (user_sk.size() > 0) {
@@ -303,6 +312,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
     registerMethod("test", make_method(this, &BroadmaskAPI::test));
     registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
+    registerMethod("sk_decrypt_b64", make_method(this, &BroadmaskAPI::sk_decrypt_b64));
     registerMethod("gpg_store_keyid", make_method(this, &BroadmaskAPI::gpg_store_keyid));
     registerMethod("gpg_get_keyid", make_method(this, &BroadmaskAPI::gpg_get_keyid));
     registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
@@ -381,26 +391,26 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         cout << "sender instance not deleted" << endl;
     
     boost::timer total;
-    string foo_pub_params = create_sender_instance("test", "test_instance", 256);
+    std::string foo_pub_params = create_sender_instance("test", "test_instance", 256);
     cout << "Setup phase: " << total.elapsed() << endl;
 
-    vector<string> s;
+    vector<std::string> s;
     for (int i = 0; i < 256; ++i) {
-        string user = boost::lexical_cast<string>(i);
+        std::string user = boost::lexical_cast<std::string>(i);
         add_member("test", user);
         s.push_back(user);
         
-        string privkey = get_member_sk("test", user);
+        std::string privkey = get_member_sk("test", user);
         create_receiver_instance(user, "test_user", 256, foo_pub_params, privkey);       
     }
     
     
     int size = 100000;
     char *random = new char[size];
-    string rec_message_j;
-    string ct_data;
+    std::string rec_message_j;
+    std::string ct_data;
     for (int i = 2; i <= 256; i*=2) {
-        vector<string> recipients;
+        vector<std::string> recipients;
         for (int j = 0; j < i; ++j) {
             recipients.push_back(s[j]);
         }
@@ -408,7 +418,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         boost::timer round, step;
         
         gen_random(random, size-1);
-        string message(random);
+        std::string message(random);
         step.restart();
         ct_data = encrypt_b64("test", recipients, message, false);
         
@@ -450,7 +460,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         cout << "sender instance not deleted" << endl;
     
     for (int i = 0; i < 256; ++i) {
-        string receiver = boost::lexical_cast<string>(i);
+        std::string receiver = boost::lexical_cast<std::string>(i);
         istore->remove_instance(receiver);
         
         if(istore->load_instance<BES_sender>(receiver))

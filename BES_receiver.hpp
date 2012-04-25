@@ -3,7 +3,7 @@
 
 #include <map>
 #include "Instance.hpp"
-#include "bes_streams.hpp"
+#include "streamhelpers.hpp"
 
 #include <gmpxx.h>
 

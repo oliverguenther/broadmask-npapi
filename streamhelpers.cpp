@@ -1,5 +1,7 @@
-#include "bes_streams.hpp"
+#include "streamhelpers.hpp"
 #include <iostream>
+#include "DOM/Window.h"
+
 
 #include <cryptopp/aes.h>
 using CryptoPP::AES;

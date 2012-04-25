@@ -104,8 +104,14 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
     InstanceDescriptor* s = instance_struct(id);
     
     Instance *instance = NULL;
-    if (s && fs::is_regular_file(s->path)) {
+    
+    if (s) {
         string serialized_class = s->path + "_serialized";
+        
+        // Can't load instance without serialized class
+        if (!fs::is_regular_file(serialized_class)) {
+            return NULL;
+        }
         std::ifstream ifs(serialized_class.c_str(), std::ios::in);
         boost::archive::text_iarchive ia(ifs);
         
@@ -165,7 +171,7 @@ void InstanceStorage::storeInstance(InstanceType *instance) {
     
 }
 
-string InstanceStorage::start_sender_instance(string id, string name, int N) {
+std::string InstanceStorage::start_sender_instance(string id, string name, int N) {
     
     BES_sender* instance = load_instance<BES_sender>(id);
     stringstream params;
@@ -226,6 +232,17 @@ void InstanceStorage::start_shared_instance(std::string id, std::string name) {
         cout << "Shared instance " << id << " is already loaded" << endl;
         return;
     }
+    
+    // record instance
+    InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_SK, 0);
+    instances.insert(id, desc);
+    
+    instance = new SK_Instance(id);
+    loaded_instances.insert(id,instance);
+    storeInstance<SK_Instance>(instance);
+    InstanceStorage::archive(this);
+    
+
 }
 
 
@@ -293,9 +310,4 @@ InstanceStorage* InstanceStorage::unarchive() {
         }
     }
     return is;
-}
-
-string SK_Instance::instance_file() {
-    fs::path instance_path = get_instance_path("shared_key", gid);
-    return instance_path.string();
 }

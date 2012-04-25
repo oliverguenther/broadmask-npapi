@@ -5,7 +5,7 @@
 #include <deque>
 #include <vector>
 #include "Instance.hpp"
-#include "bes_streams.hpp"
+#include "streamhelpers.hpp"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>

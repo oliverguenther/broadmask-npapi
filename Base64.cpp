@@ -1,72 +1,80 @@
-#include "Base64.h"
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/binary_from_base64.hpp>
-#include <boost/archive/iterators/transform_width.hpp>
-#include <boost/archive/iterators/insert_linebreaks.hpp>
-#include <boost/algorithm/string.hpp>
-#include <iostream>
-#include <openssl/sha.h>
+/*
+ *  base64.cpp
+ *  fbplugin
+ *
+ */
 
-using namespace boost::archive::iterators;
-using namespace boost::algorithm;
+#include "base64.h"
+#include <string.h>
 
-template <class T>
-struct base64 {
-    /* retrieve 6 bit integers from a sequence of 8 bit bytes,
-     * convert binary values to base64 characters */
-    typedef base64_from_binary<
-                transform_width<typename T::const_iterator, 6, 8> >
-            iterator;
-};
+static const char* base64_charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
-template <class T>
-struct base64_text {
-    /* retrieve 6 bit integers from a sequence of 8 bit bytes,
-     * convert binary values to base64 characters,
-     * insert line breaks every 72 characters */
-    typedef insert_linebreaks<base64_from_binary<
-                transform_width<typename T::const_iterator, 6, 8> >, 72>
-            iterator;
-};
-
-/* Calculate left-over bits and append markers to the end of the buffer */
-static std::string _add_leftovers(std::string ret)
-{
-    size_t leftover_bits = (ret.size() * 6) % 8;
-    if (leftover_bits == 4)
-        ret += "==";
-    else if (leftover_bits == 2)
-        ret += "=";
-
-    return ret;
+std::string base64_encode(std::string indata) {
+    std::string outdata;
+    outdata.reserve(((indata.size() * 8) / 6) + 2);
+    std::string::size_type remaining = indata.size();
+    const char* dp = indata.data();
+    
+    while (remaining >= 3) {
+        outdata.push_back(base64_charset[(dp[0] & 0xfc) >> 2]);
+        outdata.push_back(base64_charset[((dp[0] & 0x03) << 4) | ((dp[1] & 0xf0) >> 4)]); 
+        outdata.push_back(base64_charset[((dp[1] & 0x0f) << 2) | ((dp[2] & 0xc0) >> 6)]);
+        outdata.push_back(base64_charset[(dp[2] & 0x3f)]);
+        remaining -= 3; dp += 3;
+    }
+    
+    if (remaining == 2) {
+        outdata.push_back(base64_charset[(dp[0] & 0xfc) >> 2]);
+        outdata.push_back(base64_charset[((dp[0] & 0x03) << 4) | ((dp[1] & 0xf0) >> 4)]); 
+        outdata.push_back(base64_charset[((dp[1] & 0x0f) << 2)]);
+        outdata.push_back(base64_charset[64]);
+    } else if (remaining == 1) {
+        outdata.push_back(base64_charset[(dp[0] & 0xfc) >> 2]);
+        outdata.push_back(base64_charset[((dp[0] & 0x03) << 4)]); 
+        outdata.push_back(base64_charset[64]);
+        outdata.push_back(base64_charset[64]);
+    }
+    
+    return outdata;
 }
 
-std::string base64_encode(const std::vector<unsigned char>& in)
-{
-    std::string ret(base64<std::vector<unsigned char> >::iterator(in.begin()),
-                    base64<std::vector<unsigned char> >::iterator(in.end()));
-
-    return _add_leftovers(ret);
+std::string base64_encode(const std::vector<unsigned char>& vec) {
+    std::string s(vec.begin(), vec.end());
+    return base64_encode(s);
 }
 
-std::string base64_encode(const std::string& in)
-{
-    std::string ret(base64<std::string>::iterator(in.begin()),
-                    base64<std::string>::iterator(in.end()));
-
-    return _add_leftovers(ret);
-}
-
-std::string base64_decode(std::string in)
-{
-    typedef transform_width< binary_from_base64<std::string::const_iterator>, 8, 6 > binary_data;
-
-    // remove linebreaks
-    in.erase(std::remove(in.begin(), in.end(), '\n'), in.end());
-
-    size_t pos = in.find_last_not_of('=');
-    if (pos == in.size() - 1)
-        pos = in.size();
-
-    return std::string(binary_data(in.begin()), binary_data(in.begin() + pos));
+std::string base64_decode(std::string indata) {
+    std::string outdata;
+    outdata.reserve((indata.size() * 6) / 8);
+    static char* xtbl = NULL;
+    if (! xtbl) { 
+        // Build translation table from base64_charset string (once)
+        xtbl = new char[256];
+        memset(xtbl, 0, 256);
+        for (char s = 0; s < 64; ++s) {
+            xtbl[base64_charset[s]] = s; 
+        }
+        xtbl[base64_charset[64]] = 0; // padding character
+    }
+    
+    std::string::size_type remaining = indata.size();
+    const char* p = indata.data();
+    while (remaining >= 4) {
+        char xp[4];
+        for (size_t s = 0; s < 4; ++s) xp[s] = xtbl[p[s]]; 
+        outdata.push_back((xp[0] << 2) | ((xp[1] & 0x30) >> 4));
+        outdata.push_back(((xp[1] & 0x0f) << 4) | ((xp[2] & 0x3c) >> 2));
+        outdata.push_back(((xp[2] & 0x03) << 6) | xp[3]);
+        remaining -= 4;
+        if (remaining == 0) {
+            if (p[3] == base64_charset[64]) outdata.resize(outdata.size() - 1);
+            if (p[2] == base64_charset[64]) outdata.resize(outdata.size() - 1);
+            break;
+        }
+        p += 4;
+    }
+    if (remaining) { // compatibility for old, broken padding
+        while (*(p++) == base64_charset[64]) outdata.resize(outdata.size() - 1); // pop_back
+    }
+    return outdata;
 }

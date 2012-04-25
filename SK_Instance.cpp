@@ -15,8 +15,6 @@ using CryptoPP::StringSource;
 using CryptoPP::AuthenticatedEncryptionFilter;
 using CryptoPP::AuthenticatedDecryptionFilter;
 
-
-
 #include "aes.h"
 using CryptoPP::AES;
 
@@ -27,7 +25,12 @@ using CryptoPP::GCM_TablesOption;
 #include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
+#include <boost/filesystem/operations.hpp>
+#include <boost/filesystem/path.hpp>
+
+
 #include "Base64.h"
+#include "utils.h"
 
 
 #define IV_LENGTH 12
@@ -103,6 +106,7 @@ FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
         result["error"] = true;
         result["error_msg"] = e.what();
     }
+    return result; 
 }
 
 
@@ -115,7 +119,7 @@ FB::VariantMap SK_Instance::decrypt(FB::JSObjectPtr params) {
     std::string iv_str = base64_decode(iv_b64);
     
     // Extract ciphertext
-    std::string cipher_b64 = params->GetProperty("iv").convert_cast<std::string>();
+    std::string cipher_b64 = params->GetProperty("ciphertext").convert_cast<std::string>();
     std::string cipher = base64_decode(cipher_b64);
     
     unsigned char iv[IV_LENGTH];
@@ -175,4 +179,9 @@ bool SK_Instance::is_authorized(std::string user_id) {
 
 void SK_Instance::add_member(std::string user_id) {
     authorized_users.insert(user_id);
+}
+
+std::string SK_Instance::instance_file() {
+    boost::filesystem::path instance_path = get_instance_path("sk", gid);
+    return instance_path.string();
 }

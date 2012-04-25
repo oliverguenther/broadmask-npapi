@@ -8,6 +8,7 @@
 #include "JSAPIAuto.h"
 #include "JSObject.h"
 #include "variant_map.h"
+#include "variant.h"
 
 #include "BrowserHost.h"
 #include "Broadmask.h"
@@ -36,9 +37,10 @@ public:
      * 
      * @return [N,PK,HDR] as base64 encoded binary to be used on receiving side
      */
-    std::string create_sender_instance(string gid, string name, int N);
+    std::string create_sender_instance(std::string gid, std::string name, int N);
     
-    std::string sk_encrypt_b64(std::string data, bool image);
+    FB::VariantMap sk_encrypt_b64(std::string gid, std::string data, bool image);
+    FB::VariantMap sk_decrypt_b64(std::string gid, FB::JSObjectPtr params, bool image);
 
     
     /**
@@ -175,7 +177,7 @@ public:
      */     
     FB::VariantMap get_stored_instances();
     
-    void remove_instance(string id);
+    void remove_instance(std::string id);
 
     
     

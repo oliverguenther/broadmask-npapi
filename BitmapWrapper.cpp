@@ -101,6 +101,14 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 vector<unsigned char> decodeImage(vector<unsigned char> data) {
 	vector<unsigned char>::iterator it;
 	it = data.begin();
+    
+    
+    cout << endl << "***" << endl;
+    for (int i = 0; i < data.size(); ++i) {
+        cout << data[i];
+    }
+    
+    cout << endl;
 
 
 	unsigned char buf[4];
