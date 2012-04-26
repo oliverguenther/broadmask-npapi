@@ -122,12 +122,12 @@ public:
     FB::VariantMap get_stored_instances();
     
     /**
-     * @fn InstanceStorage::store_instance
+     * @fn InstanceStorage::store_instance_descriptor
      * @brief Store an instance descriptor and creates instance
      * @param FB::VariantMap instance, JS object containing keys
      * [id, name, type, path, max_users]
      */
-    void store_instance(FB::JSObjectPtr instance);
+    void store_instance_descriptor(FB::JSObjectPtr instance);
     
     void remove_instance(string id);
     
@@ -156,8 +156,11 @@ public:
     template<typename InstanceType>
     InstanceType* load_instance(std::string id);
     
+    Instance* load_unknown(std::string gid);
+    void store_unknown(std::string gid, Instance *base_instance);
+    
     template<typename InstanceType>
-    void storeInstance(InstanceType *instance);
+    void store_instance(InstanceType* instance);
     
     std::string start_sender_instance(std::string id, std::string name, int N);
     void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);

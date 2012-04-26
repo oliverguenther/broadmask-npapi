@@ -41,11 +41,14 @@ SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {
     
     // Default is 256bit key
     keylen = AES_DEFAULT_KEYSIZE;
+    members = std::map<std::string, int>();
     
     // Create random key
-    key.resize(keylen);
     AutoSeededRandomPool prng;
-	prng.GenerateBlock(&key[0], keylen);
+    unsigned char buf[keylen];
+	prng.GenerateBlock(buf, keylen);
+    key.assign(buf, buf + keylen);
+    
     
 }
 
@@ -166,19 +169,6 @@ FB::VariantMap SK_Instance::decrypt(FB::JSObjectPtr params) {
     result["error_msg"] = "Incorrect ciphertext";
     return result;
     
-}
-
-bool SK_Instance::is_authorized(std::string user_id) {
-    std::set<std::string>::iterator it = authorized_users.find(user_id);
-    
-    if (it != authorized_users.end())
-        return true;
-    else
-        return false;
-}
-
-void SK_Instance::add_member(std::string user_id) {
-    authorized_users.insert(user_id);
 }
 
 std::string SK_Instance::instance_file() {

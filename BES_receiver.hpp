@@ -84,6 +84,7 @@ private:
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & N;
         ar & gid;
+        ar & members;
         ar & keylen;
     }
     

@@ -24,13 +24,7 @@ public:
     SK_Instance(std::string groupid, std::string key_b64, int keysize);
     
     ~SK_Instance();
-    
-    
-    bool is_authorized(std::string user_id);
-    
-    void add_member(std::string user_id);
-    
-    
+
     FB::VariantMap encrypt(std::string plaintext);
     FB::VariantMap decrypt(FB::JSObjectPtr params);
     
@@ -43,13 +37,6 @@ public:
     std::string instance_file();
     
 private:
-    
-    
-    /**
-     * Registered users
-     */
-    
-    std::set <std::string> authorized_users;
     
     int keylen;
     
@@ -64,8 +51,8 @@ private:
     {
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & gid;
+        ar & members;
         ar & keylen;
-        ar & authorized_users;
         ar & key;
     }
     

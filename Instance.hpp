@@ -4,6 +4,7 @@
 // serialization
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
+#include <boost/serialization/map.hpp>
 
 // filesystem
 #include <boost/filesystem/operations.hpp>
@@ -39,10 +40,57 @@ public:
     virtual std::string instance_file() = 0;
     
     
+    /**
+     * @brief return instance members
+     */
+    std::map<std::string, int> instance_members() {
+        return members;
+    };
+    
+    
+    /**
+     * @brief add member to this instance
+     */
+    int add_member(std::string id) {
+        // default: map all users to 0
+        // BES_sender overrides this behavior for pseuodnyms
+        
+        members.insert(std::pair<std::string, int>(id, 0));
+        return 0;
+    }
+    
+    /**
+     * @brief remove a member from this instance
+     */
+    void remove_member(std::string id) {
+        members.erase(id);
+    }
+    
+    
+    /**
+     * @brief returns internal id associated to member
+     * or -1 if id is not a member
+     */
+    virtual int get_member_id(std::string id) {
+        std::map<std::string, int>::iterator it = members.find(id);
+        
+        if (it != members.end()) {
+            return it->second;
+        } else {
+            return -1;
+        }
+    }
+    
+    virtual bool is_member(std::string id) {
+        return (get_member_id(id) != -1);
+    }
+    
+    
 
 protected:
 
     std::string gid;
+    std::map<std::string, int> members;
 
     
 private:
@@ -52,9 +100,9 @@ private:
     //
     friend class boost::serialization::access;
     template<class Archive>
-    void serialize(Archive & ar, const unsigned int version)
-    {
+    void serialize(Archive & ar, const unsigned int version) {
         ar & gid;
+        ar & members;
     }
 };
 #endif

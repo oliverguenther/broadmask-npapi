@@ -57,7 +57,7 @@ FB::VariantMap InstanceStorage::get_stored_instances() {
 }
 
 
-void InstanceStorage::store_instance(FB::JSObjectPtr params) {
+void InstanceStorage::store_instance_descriptor(FB::JSObjectPtr params) {
     
     string id = params->GetProperty("id").convert_cast<std::string>();
     string name = params->GetProperty("name").convert_cast<std::string>();
@@ -153,7 +153,11 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
 }
 
 template<typename InstanceType>
-void InstanceStorage::storeInstance(InstanceType *instance) {
+void InstanceStorage::store_instance(InstanceType *instance) {
+    
+    if (!instance) {
+        return;
+    }
     
     // Only derived classes of Instance
     (void)static_cast<Instance*>((InstanceType*)0);
@@ -167,7 +171,49 @@ void InstanceStorage::storeInstance(InstanceType *instance) {
     
     std::ofstream ofs(classpath.c_str());
     boost::archive::text_oarchive oa(ofs);
-    oa << *(instance);
+    oa << *((InstanceType*) instance);
+    
+}
+
+Instance* InstanceStorage::load_unknown(std::string gid) {
+    int type = instance_type(gid);
+    
+    Instance *instance = NULL;
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+            instance = load_instance<BES_sender>(gid);
+            break;
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+            instance = load_instance<BES_receiver>(gid);
+            break;
+        case BROADMASK_INSTANCE_SK:
+            instance = load_instance<SK_Instance>(gid);
+            break;
+        default:
+            break;
+    }
+    
+    return instance;
+    
+}
+
+void InstanceStorage::store_unknown(std::string gid, Instance *instance) {
+    int type = instance_type(gid);
+    
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+            store_instance<BES_sender>(dynamic_cast<BES_sender*>(instance));
+            break;
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+            store_instance<BES_receiver>(dynamic_cast<BES_receiver*>(instance));
+            break;
+        case BROADMASK_INSTANCE_SK:
+            store_instance<SK_Instance>(dynamic_cast<SK_Instance*>(instance));
+            break;
+        default:
+            cout << "Can't store unknown instance " << gid << endl;
+            break;
+    }
     
 }
 
@@ -191,7 +237,7 @@ std::string InstanceStorage::start_sender_instance(string id, string name, int N
     // create and store instance
     instance = new BES_sender(id, N);
     loaded_instances.insert(id, instance);        
-    storeInstance<BES_sender>(instance);
+    store_instance<BES_sender>(instance);
     InstanceStorage::archive(this);
 
     instance->public_params_to_stream(params);
@@ -220,7 +266,7 @@ void InstanceStorage::start_receiver_instance(string id, string name, int N, str
     // Create and store instance
     instance = new BES_receiver(id, N, public_params, private_key);    
     loaded_instances.insert(id, instance);    
-    storeInstance<BES_receiver>(instance);
+    store_instance<BES_receiver>(instance);
     InstanceStorage::archive(this);
     
 }
@@ -239,7 +285,7 @@ void InstanceStorage::start_shared_instance(std::string id, std::string name) {
     
     instance = new SK_Instance(id);
     loaded_instances.insert(id,instance);
-    storeInstance<SK_Instance>(instance);
+    store_instance<SK_Instance>(instance);
     InstanceStorage::archive(this);
     
 

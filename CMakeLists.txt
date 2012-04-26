@@ -14,6 +14,7 @@ file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     [^.]*.c
     [^.]*.cpp
     [^.]*.h
+    [^.]*.hpp
     [^.]*.cmake
 	PBC_bes/pbc_bes.h
 	PBC_bes/pbc_bes.c

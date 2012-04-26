@@ -51,6 +51,7 @@ BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
     
     
     N = num_users;
+    members = std::map<std::string, int>();
     setup_global_system(&gbs, params, num_users);
     
     
@@ -65,9 +66,9 @@ BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
 BES_sender::BES_sender(const BES_sender& b) {
     
     N = b.N;
+    members = b.members;
     gid = b.gid;
     sys = b.sys;
-    users = b.users;
     availableIDs = b.availableIDs;
     setup_global_system(&gbs, params, N);
 }
@@ -84,24 +85,24 @@ int BES_sender::add_member(std::string id) {
     int sys_id = availableIDs.front();
     availableIDs.pop_front();
     
-    users.insert(pair<string, int> (id, sys_id));
+    members.insert(pair<string, int> (id, sys_id));
     return sys_id;    
 }
 
 
 void BES_sender::remove_member(std::string id) {
-    map<string, int>::iterator it = users.find(id);
+    map<string, int>::iterator it = members.find(id);
     
-    if (it != users.end()) {
+    if (it != members.end()) {
         availableIDs.push_back(it->second);
-        users.erase(it);        
+        members.erase(it);        
     }
 }
 
 int BES_sender::member_id(std::string id) {
-    map<string, int>::iterator it = users.find(id);
+    map<string, int>::iterator it = members.find(id);
     
-    if (it != users.end()) {
+    if (it != members.end()) {
         return it->second;     
     } else {
         return -1;

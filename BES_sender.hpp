@@ -109,11 +109,6 @@ private:
     bes_system_t sys;
     
     /*
-     * Current users in the BES
-     */
-    std::map <std::string, int> users;
-    
-    /*
      * IDs available in the system
      */
     std::deque<int> availableIDs;
@@ -137,7 +132,7 @@ private:
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & N;
         ar & gid;
-        ar & users;
+        ar & members;
         ar & availableIDs;
     }
     

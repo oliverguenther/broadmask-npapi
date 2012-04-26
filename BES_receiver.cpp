@@ -61,6 +61,7 @@ BES_receiver::BES_receiver(string groupid, int max_users, string public_data, st
     public_params.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     N = max_users;
+    members = std::map<std::string, int>();
     
     
     setup_global_system(&gbs, params, N);
@@ -78,6 +79,7 @@ BES_receiver::BES_receiver(string groupid, int max_users, string public_data, st
 BES_receiver::BES_receiver(const BES_receiver& b) {
     N = b.N;
     gid = b.gid;
+    members = b.members;
     SK = b.SK;    
     PK = b.PK;    
     keylen = b.keylen;

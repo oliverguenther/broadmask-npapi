@@ -85,24 +85,99 @@ std::string BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
 }
 
 int BroadmaskAPI::add_member(std::string gid, std::string id) {
-    BES_sender *bci = istore->load_instance<BES_sender>(gid);
-    if (!bci) {
-        cout << "Sender instance " << gid << " not found" << endl;
+    int type = istore->instance_type(gid);
+    
+    Instance *instance = NULL;
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+            instance = istore->load_instance<BES_sender>(gid);
+            break;
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+            instance = istore->load_instance<BES_receiver>(gid);
+            break;
+        case BROADMASK_INSTANCE_SK:
+            instance = istore->load_instance<SK_Instance>(gid);
+            break;
+        default:
+            break;
+    }
+        
+    if (!instance) {
         return -1;
     }
-
-    int sys_id = bci->add_member(id);
-//    bci->store(true);
+    
+    int sys_id = instance->add_member(id);
+    instance->store();
     return sys_id;
     
+}
+
+FB::VariantMap BroadmaskAPI::add_members(std::string gid, std::vector<std::string> idvector) {
+
+    Instance *instance = istore->load_unknown(gid);    
+    FB::VariantMap result;
+    
+    if (!instance) {
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        return result;
+    }
+    
+    for (std::vector<std::string>::iterator it = idvector.begin(); 
+         it != idvector.end(); ++it) {
+
+        int sys_id = instance->add_member(*it);
+        cout << "add_members " << *it <<  " mapped to " << sys_id << endl;
+        result[*it] = sys_id;
+
+        
+    }
+    
+    istore->store_unknown(gid, instance);
+    return result;
 }
 
 void BroadmaskAPI::remove_member(std::string gid, std::string id) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     if (bci) {
         bci->remove_member(id);
-//        bci->store(true);
+        bci->store();
     }
+}
+
+FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
+    
+    int type = istore->instance_type(gid);
+    
+    Instance *instance = NULL;
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+            instance = istore->load_instance<BES_sender>(gid);
+            break;
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+            instance = istore->load_instance<BES_receiver>(gid);
+            break;
+        case BROADMASK_INSTANCE_SK:
+            instance = istore->load_instance<SK_Instance>(gid);
+            break;
+        default:
+            break;
+    }
+    
+    FB::VariantMap result;
+
+    if (!instance)
+        return result;     // No instance available
+
+    std::map<std::string, int> members = instance->instance_members();
+    for (std::map<std::string, int>::iterator it = members.begin();
+         it != members.end(); ++it) {
+        cout << it->first << " " << it->second << endl;
+        result[it->first] = it->second;
+    }
+    
+    return result;
+
 }
 
 std::string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
@@ -304,7 +379,11 @@ m_plugin(plugin), m_host(host) {
     registerMethod("create_sender_instance", make_method(this, &BroadmaskAPI::create_sender_instance));
     registerMethod("create_receiver_instance", make_method(this, &BroadmaskAPI::create_receiver_instance));
     registerMethod("create_shared_instance", make_method(this, &BroadmaskAPI::create_shared_instance));
+    registerMethod("get_stored_instances", make_method(this, &BroadmaskAPI::get_stored_instances));
+    registerMethod("get_instance_members", make_method(this, &BroadmaskAPI::get_instance_members));
+    registerMethod("remove_instance", make_method(this, &BroadmaskAPI::remove_instance));    
     registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
+    registerMethod("add_members", make_method(this, &BroadmaskAPI::add_members));
     registerMethod("remove_member", make_method(this, &BroadmaskAPI::remove_member));        
     registerMethod("get_member_sk", make_method(this, &BroadmaskAPI::get_member_sk));        
     registerMethod("get_member_sk_gpg", make_method(this, &BroadmaskAPI::get_member_sk_gpg));
@@ -321,8 +400,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_associatedKeys", make_method(this, &BroadmaskAPI::gpg_associatedKeys));
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
-    registerMethod("get_stored_instances", make_method(this, &BroadmaskAPI::get_stored_instances));
-    registerMethod("remove_instance", make_method(this, &BroadmaskAPI::remove_instance));    
+
 
     // (Re-)start User Storage
     ustore = UserStorage::unarchive();

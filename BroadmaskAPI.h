@@ -8,6 +8,7 @@
 #include "JSAPIAuto.h"
 #include "JSObject.h"
 #include "variant_map.h"
+#include "variant_list.h"
 #include "variant.h"
 
 #include "BrowserHost.h"
@@ -71,7 +72,12 @@ public:
      */
     FB::VariantMap get_member_sk_gpg(std::string gid, std::string sysid);
     
+    FB::VariantMap get_instance_members(std::string gid);
+    
     int add_member(std::string gid, std::string sysid);
+
+    FB::VariantMap add_members(std::string gid, std::vector<std::string> idvector);
+
     
     void remove_member(std::string gid, std::string sysid);
 
