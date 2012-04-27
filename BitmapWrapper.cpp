@@ -15,6 +15,7 @@ using namespace std;
  *
  **/
 vector<unsigned char> encodeImage(vector<unsigned char> data) {
+    
 	unsigned int payload = (int) data.size() - 1;
 	unsigned int width = static_cast<int>(ceil(sqrt(static_cast<double>(payload) / 3)));
 	unsigned int height = static_cast<int>(ceil((static_cast<double>(payload) / width) / 3));
@@ -38,13 +39,13 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 	unsigned char header[_BMPHEADERSIZE];
 	memcpy(header,_BMPHEADER_,_BMPHEADERSIZE);
 
-	cout << "Payload: " << payload << endl;
-	cout << "width: " << width << endl;
-	cout << "height: " << height << endl;
-	cout << "linepadding: " << linepadding << endl;
-	cout << "Embedded total size : " << embedded_size << endl;
-	cout << "filesize : " << filesize << endl;
-	cout << "payload_padding: " << payload_padding << endl;
+//	cout << "Payload: " << payload << endl;
+//	cout << "width: " << width << endl;
+//	cout << "height: " << height << endl;
+//	cout << "linepadding: " << linepadding << endl;
+//	cout << "Embedded total size : " << embedded_size << endl;
+//	cout << "filesize : " << filesize << endl;
+//	cout << "payload_padding: " << payload_padding << endl;
 
 
 	// Override necessary parts
@@ -81,15 +82,6 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 	for (size_t i = 0; i < payload_padding; i++) {
 		bmp.push_back(0);
 	}
-
-//	cout << "Wrapped:" << endl;
-//	for (size_t i = 0; i < bmp.size(); i++) {
-//		cout << hex << setfill('0') << setw(2) << (int) bmp[i];
-//	}
-//    
-//    cout << "****" << endl;
-//
-
     
 	return bmp;
 }
@@ -101,16 +93,7 @@ vector<unsigned char> encodeImage(vector<unsigned char> data) {
 vector<unsigned char> decodeImage(vector<unsigned char> data) {
 	vector<unsigned char>::iterator it;
 	it = data.begin();
-    
-    
-    cout << endl << "***" << endl;
-    for (int i = 0; i < data.size(); ++i) {
-        cout << data[i];
-    }
-    
-    cout << endl;
-
-
+        
 	unsigned char buf[4];
 
 	// Get bmp width
@@ -146,23 +129,11 @@ vector<unsigned char> decodeImage(vector<unsigned char> data) {
 			}
 		}
 	}
-	string t(out.begin(), out.end());
-	cout << "width: " << width << endl;
-	cout << "height: " << height << endl;
-	cout << "linepadding: " << linepadding << endl;
-	cout << "Embedded total size : " << payload << " -> " << out.size() << endl;
-	cout << "filesize : " << data.size() << endl;
-
-//	cout << "Wrapped:" << endl;
-//	for (size_t i = 0; i < data.size(); ++i) {
-//		cout << data[i];
-//	}
-//
-//	cout << endl;
-//
-//	cout << "Unwrapped:" << endl;
-//	cout << t << endl;
-	return out;
+//	cout << "width: " << width << endl;
+//	cout << "height: " << height << endl;
+//	cout << "linepadding: " << linepadding << endl;
+//	cout << "Embedded total size : " << payload << " -> " << out.size() << endl;
+//	cout << "filesize : " << data.size() << endl;
 
 }
 

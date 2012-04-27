@@ -12,6 +12,9 @@ extern "C" {
 #include "PBC_bes/pbc_bes.h"
 }
 
+#define AES_IV_LENGTH 12
+
+
 /**
  * @typedef private key struct
  */
@@ -34,6 +37,15 @@ typedef struct bes_ciphertext_s {
 }* bes_ciphertext_t;
 
 /**
+ * @typedef Shared-Key ciphertext struct
+ */
+typedef struct sk_ciphertext_s {
+    int ct_length;
+    unsigned char* iv;
+    unsigned char* ct;
+}* sk_ciphertext_t;
+
+/**
  * constant Type A parameters
  */
 static const char* params = 
@@ -53,10 +65,18 @@ void element_to_stream(element_t el, std::ostream& is);
 void ciphertext_from_stream(bes_ciphertext_t *ct, bes_global_params_t gbs, std::istream& is);
 void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, std::ostream& os);
 
+void sk_ciphertext_from_stream(sk_ciphertext_t *skt_ct, std::istream& is);
+void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, std::ostream& os);
+
 void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::istream& is, int element_size);
 void public_key_to_stream(pubkey_t pk, bes_global_params_t gbs, std::ostream& os);
 
 void private_key_from_stream(bes_privkey_t *sk, bes_global_params_t gbs, std::istream& is, int element_size);
 void private_key_to_stream(bes_privkey_t sk, std::ostream& os);
+
+void free_sk_ciphertext(sk_ciphertext_t ct);
+void free_bes_ciphertext(bes_ciphertext_t ct, bes_global_params_t gbs);
+void free_bes_privkey(bes_privkey_t sk);
+
 
 #endif

@@ -6,6 +6,7 @@
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
 
+
 using namespace std;
 
 void element_from_stream(element_t el, bes_global_params_t gbs, std::istream& is, int numbytes) {    
@@ -47,8 +48,8 @@ void ciphertext_from_stream(bes_ciphertext_t* ct, bes_global_params_t gbs, istre
         element_from_stream(cipher->HDR[i], gbs, is, element_size);
     }
     
-    cipher->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
-    is.read(reinterpret_cast<char*>(cipher->iv), AES::BLOCKSIZE);
+    cipher->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
+    is.read(reinterpret_cast<char*>(cipher->iv), AES_IV_LENGTH);
     
     cipher->ct = (unsigned char*) malloc(cipher->ct_length * sizeof(unsigned char));
     is.read(reinterpret_cast<char*>(cipher->ct), cipher->ct_length);
@@ -80,10 +81,45 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, ostream&
     }
     
     // IV
-    os.write(reinterpret_cast<char*>(ct->iv), AES::BLOCKSIZE);
+    os.write(reinterpret_cast<char*>(ct->iv), AES_IV_LENGTH);
     
     // CT
     os.write(reinterpret_cast<char*>(ct->ct), ct->ct_length);
+}
+
+void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, ostream& os) {
+    int version = 0;
+    os << version << " ";
+    os << sk_ct->ct_length << "\n";
+    
+    // IV
+    os.write(reinterpret_cast<char*>(sk_ct->iv), AES_IV_LENGTH);
+    
+    
+    // CT
+    os.write(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_length);
+
+    
+}
+
+void sk_ciphertext_from_stream(sk_ciphertext_t *ctptr, istream& is) {
+    int version;
+    
+    sk_ciphertext_t sk_ct = (sk_ciphertext_t) malloc(sizeof(struct sk_ciphertext_s));
+    
+    is >> version;
+    is >> sk_ct->ct_length;
+    is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+    // IV
+    sk_ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
+    is.read(reinterpret_cast<char*>(sk_ct->iv), AES_IV_LENGTH);
+
+    // CT
+    sk_ct->ct = (unsigned char*) malloc(sk_ct->ct_length * sizeof(unsigned char));
+    is.read(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_length);
+
+    *ctptr = sk_ct;
 }
 
 void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::istream& is, int element_size) {
@@ -143,4 +179,40 @@ void private_key_to_stream(bes_privkey_t sk, std::ostream& os) {
     os << sk->id << "\n";
     
     element_to_stream(sk->privkey, os);
+}
+
+
+void free_sk_ciphertext(sk_ciphertext_t ct) {
+    if (!ct)
+        return;
+    
+    free(ct->iv);
+    free(ct->ct);
+    free(ct);
+}
+
+void free_bes_ciphertext(bes_ciphertext_t ct, bes_global_params_t gbs) {
+    if (!ct || !gbs)
+        return;
+    
+    // receivers
+    free(ct->receivers);
+    
+    // HDR
+    for (int i = 0; i < (gbs->A + 1); ++i) {
+        element_clear(ct->HDR[i]);
+    }
+    
+    free(ct->iv);
+    free(ct->ct);
+    free(ct);
+    
+}
+
+void free_bes_privkey(bes_privkey_t sk) {
+    if (!sk)
+        return;
+    
+    element_clear(sk->privkey);
+    free(sk);
 }

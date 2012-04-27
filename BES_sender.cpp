@@ -12,33 +12,40 @@
 
 // hkdf scheme, rfc5869
 #include <cryptopp/hmac.h>
-#include "hkdf.h"
 #include <cryptopp/sha.h>
+#include "hkdf.h"
 
 #include <cryptopp/filters.h>
+using CryptoPP::Redirector;
 using CryptoPP::StringSink;
 using CryptoPP::StringSource;
-using CryptoPP::StreamTransformationFilter;
+using CryptoPP::AuthenticatedEncryptionFilter;
+using CryptoPP::AuthenticatedDecryptionFilter;
 
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
 
-#include <cryptopp/modes.h>
-using CryptoPP::CFB_Mode;
+#include <cryptopp/gcm.h>
+using CryptoPP::GCM;
+using CryptoPP::GCM_TablesOption;
 
 #include <cryptopp/cryptlib.h>
 using CryptoPP::Exception;
+using CryptoPP::BufferedTransformation;
+using CryptoPP::AuthenticatedSymmetricCipher;
 
 #include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
 
+#define AES_IV_LENGTH 12
+#define TAG_SIZE 12
+#define AES_DEFAULT_KEYSIZE 32
+
 #include "utils.h"
 
 namespace fs = boost::filesystem;
 using namespace std;
-
-const int kDerivedKeysize = 32; // bytes
 
 struct inc_index {
     int cur;
@@ -124,7 +131,7 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
 void BES_sender::public_params_to_stream(std::ostream& os) {
     int element_size = element_length_in_bytes(sys->PK->g);
     os << element_size << " ";
-    os << kDerivedKeysize << "\n";
+    os << AES_DEFAULT_KEYSIZE << "\n";
     
     public_key_to_stream(sys->PK, gbs, os);
 }
@@ -161,21 +168,25 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<string>& S
     memcpy(ct->HDR, keypair->HDR, (gbs->A+1) * sizeof(element_t));
     
     // Key derivation
-    unsigned char sym_key[kDerivedKeysize];
-    derivate_encryption_key(sym_key, kDerivedKeysize, keypair->K);
-        
+    unsigned char sym_key[AES_DEFAULT_KEYSIZE];
+    derivate_encryption_key(sym_key, AES_DEFAULT_KEYSIZE, keypair->K);
+    
     // AES encrpytion    
 
     // IV
-    ct->iv = (unsigned char*) malloc(AES::BLOCKSIZE * sizeof(unsigned char));
+    ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
     AutoSeededRandomPool prng;
-	prng.GenerateBlock(ct->iv, sizeof(ct->iv));
+	prng.GenerateBlock(ct->iv, AES_IV_LENGTH);
 
     try {
-		CFB_Mode< AES >::Encryption enc;
-		enc.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES::BLOCKSIZE);
+		GCM< AES >::Encryption e;
+		e.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES_IV_LENGTH);
         string cipher;
-		StringSource(data, true, new StreamTransformationFilter(enc, new StringSink(cipher)));
+        StringSource(data, true,
+                     new AuthenticatedEncryptionFilter( e,
+                                                       new StringSink( cipher ), false, TAG_SIZE
+                                                       )
+                     );
                 
         ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
         ct->ct_length = cipher.size();
@@ -315,4 +326,8 @@ string BES_sender::instance_file() {
 
     
     
-BES_sender::~BES_sender() {}
+BES_sender::~BES_sender() {
+    free_bes_system(sys, gbs);
+    availableIDs.clear();
+    members.clear();
+}

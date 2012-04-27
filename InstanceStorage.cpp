@@ -131,6 +131,7 @@ InstanceType* InstanceStorage::load_instance(std::string id) {
                 break;
             case BROADMASK_INSTANCE_BES_RECEIVER:
                 // Restore instance class itself
+                instance = new BES_receiver;
                 ia >> *((BES_receiver*)instance);
                 
                 // Restore BES structs

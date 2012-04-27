@@ -6,6 +6,10 @@
 
 #include "base64.h"
 #include <string.h>
+#include <vector>
+#include <iostream>
+#include <iomanip>
+#include <sstream>
 
 static const char* base64_charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=";
 
@@ -43,8 +47,9 @@ std::string base64_encode(const std::vector<unsigned char>& vec) {
     return base64_encode(s);
 }
 
-std::string base64_decode(std::string indata) {
-    std::string outdata;
+
+std::vector<unsigned char> base64_decode_vec(std::string indata) {
+    std::vector<unsigned char> outdata;
     outdata.reserve((indata.size() * 6) / 8);
     static char* xtbl = NULL;
     if (! xtbl) { 
@@ -77,4 +82,13 @@ std::string base64_decode(std::string indata) {
         while (*(p++) == base64_charset[64]) outdata.resize(outdata.size() - 1); // pop_back
     }
     return outdata;
+    
+}
+
+std::string base64_decode(std::string indata) {
+    std::vector<unsigned char> data = base64_decode_vec(indata);
+    std::string s(reinterpret_cast<char*>(&data[0]), data.size());
+
+    return s;
+            
 }

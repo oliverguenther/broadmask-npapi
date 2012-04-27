@@ -4,6 +4,7 @@
 #include <map>
 #include "Instance.hpp"
 #include "streamhelpers.hpp"
+#include "variant_map.h"
 
 #include <gmpxx.h>
 
@@ -36,7 +37,7 @@ public:
      *
      * @return decrypted plain text or empty vector
      */
-    std::string bes_decrypt(bes_ciphertext_t& ct);
+    FB::VariantMap bes_decrypt(bes_ciphertext_t& ct);
     
     
     /**
@@ -53,7 +54,7 @@ public:
     std::string instance_file();
 
     /**
-     * BES global params
+     * BES public global params
      */
     bes_global_params_t gbs;
     

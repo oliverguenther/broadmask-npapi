@@ -41,7 +41,7 @@ public:
     std::string create_sender_instance(std::string gid, std::string name, int N);
     
     FB::VariantMap sk_encrypt_b64(std::string gid, std::string data, bool image);
-    FB::VariantMap sk_decrypt_b64(std::string gid, FB::JSObjectPtr params, bool image);
+    FB::VariantMap sk_decrypt_b64(std::string gid, std::string params, bool image);
 
     
     /**
@@ -77,9 +77,14 @@ public:
     int add_member(std::string gid, std::string sysid);
 
     FB::VariantMap add_members(std::string gid, std::vector<std::string> idvector);
+    
+    FB::VariantMap get_bes_public_params(std::string gid);
 
     
     void remove_member(std::string gid, std::string sysid);
+    
+    FB::VariantMap get_instance_descriptor(std::string id);
+
 
     /** 
      * @fn BroadmaskAPI::encrypt_b64
@@ -92,7 +97,7 @@ public:
      *
      * @return encrypted binary data, base64 encoded
      */
-    std::string encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image);
+    FB::VariantMap encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image);
     
     /** 
      * @fn BroadmaskAPI::decrypt_b64
@@ -105,7 +110,7 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    std::string decrypt_b64(std::string gid, std::string ct_data, bool image);
+    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);
     
     void test(const FB::JSObjectPtr &callback);
     void testsuite(const FB::JSObjectPtr &callback);

@@ -22,10 +22,4 @@ boost::filesystem::path get_instance_file(std::string gid, std::string file);
 
 boost::filesystem::path get_instance_path(std::string type, std::string instance_id);
 
-std::pair< std::vector<std::string>, std::vector<std::string> > stored_instances();
-
-
-void vector_from_stream(std::vector<unsigned char>& v, std::istream& is);
-void vector_from_string(std::vector<unsigned char>& v, std::string s);
-
 #endif

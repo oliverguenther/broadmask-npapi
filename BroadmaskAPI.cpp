@@ -61,6 +61,10 @@ void BroadmaskAPI::create_shared_instance(std::string gid, std::string name) {
     istore->start_shared_instance(gid, name);
 }
 
+FB::VariantMap BroadmaskAPI::get_instance_descriptor(std::string id) {
+    return istore->instance_description(id);
+}
+
 void BroadmaskAPI::remove_instance(std::string id) {
     istore->remove_instance(id);
 }
@@ -145,6 +149,27 @@ void BroadmaskAPI::remove_member(std::string gid, std::string id) {
     }
 }
 
+FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
+    int type = istore->instance_type(gid);
+    
+    FB::VariantMap result;
+    
+    if (type != BROADMASK_INSTANCE_BES_SENDER) {
+        result["error"] = true;
+        result["error_msg"] = "Invalid Instance type";
+        result["instance_type"] = type;
+        return result;
+    }
+    
+    BES_sender *sender = istore->load_instance<BES_sender>(gid);
+    
+    stringstream ss;
+    sender->public_params_to_stream(ss);
+    result["result"] = base64_encode(ss.str());
+    return result;
+    
+}
+
 FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
     
     int type = istore->instance_type(gid);
@@ -180,31 +205,69 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
 
 }
 
-std::string BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
+FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     
+    FB::VariantMap result;
     if (!bci) {
-        cout << "Sender instance " << gid << " not found" << endl;
-        return "";
+        result["error"] = true;
+        result["error_msg"] = "Sender Instance not found";
+        return result;
     }
 
     bes_ciphertext_t ct;
     bci->bes_encrypt(&ct, receivers, data);
     
     std::stringstream ctos;
-    std::string ct_b64;
     ciphertext_to_stream(ct, bci->gbs, ctos);    
-    // Encode to Base64
-    ct_b64 = base64_encode(ctos.str());
+    std::string ct_str = ctos.str();
+
     
     if (image) {
-        vector<unsigned char> b64data, b64padded;
-        vector_from_string(b64data, ct_b64);
-        b64padded = encodeImage(b64data);
-        return base64_encode(b64padded);
+        // wrap in BMP, then base64 encode
+        vector<unsigned char> ct_vec(ct_str.begin(), ct_str.end());
+        vector<unsigned char> ct_wrapped = encodeImage(ct_vec);
+        result["ciphertext"] = base64_encode(ct_wrapped);
 
+    } else {
+        // return base64 encoded ciphertext
+        result["ciphertext"] = base64_encode(ct_str);
     }
-    return ct_b64;
+    
+    return result;
+}
+
+
+FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string ct_data, bool image) {
+    BES_receiver *bci = istore->load_instance<BES_receiver>(gid);
+    
+    if (!bci) {
+        FB::VariantMap result;
+        result["error"] = true;
+        result["error_msg"] = "Receiver instance not found";
+        return result;
+        
+    }
+     
+    std::string ct_str;
+    if (image) {
+        // Unwrap from BMP
+        vector<unsigned char> ct_wrapped, ct_unwrapped;
+        ct_wrapped = base64_decode_vec(ct_data);
+        ct_unwrapped = decodeImage(ct_wrapped);
+        ct_str = std::string(reinterpret_cast<char*>(ct_unwrapped.data()), ct_unwrapped.size());
+        
+    } else {
+        // Decode from Base64
+        ct_str = base64_decode(ct_data);
+    }
+    
+    // Read params into struct
+    bes_ciphertext_t ct;
+    std::stringstream ctss(ct_str);
+    ciphertext_from_stream(&ct, bci->gbs, ctss);
+    
+    return bci->bes_decrypt(ct);
 }
 
 FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, bool image) {
@@ -221,11 +284,16 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
     
     result = ski->encrypt(data);
     
-    if (image && (result.find("ciphertext") != result.end())) {
-        vector<unsigned char> b64data, b64padded;
-        vector_from_string(b64data, result["ciphertext"].convert_cast<std::string>());
-        b64padded = encodeImage(b64data);
-        result["ciphertext"] = base64_encode(std::string(b64padded.begin(), b64padded.end()));
+    if (result.find("error") != result.end())
+        return result;
+    
+    std::string ct_str = result["ciphertext"].convert_cast<std::string>();
+    if (image) {
+        std::vector<unsigned char> ct_vec (ct_str.begin(), ct_str.end());
+        std::vector<unsigned char> ct_wrapped = encodeImage(ct_vec);
+        result["ciphertext"] = base64_encode(ct_wrapped);
+    } else {
+        result["ciphertext"] = base64_encode(ct_str);
     }
     
     return result;
@@ -234,7 +302,7 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
     
 }
 
-FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, FB::JSObjectPtr params, bool image) {
+FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64, bool image) {
     SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
     
     FB::VariantMap result;
@@ -245,48 +313,27 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, FB::JSObjectPtr par
         result["error_msg"] = "Instance not found";
         return result;
     }
+
+    // remove base64 encoding
+    std::string sk_ct_str = base64_decode(ct_b64);
+
     
     if (image) {
-        FB::variant v = params->GetProperty("ciphertext");
-        std::string ct_padded_b64 = v.cast<std::string>();
-        cout << endl << ct_padded_b64 << endl;
-        std::string ct_padded = base64_decode(ct_padded_b64);
-        vector<unsigned char> b64padded,b64data;
-        vector_from_string(b64padded, ct_padded);
-        b64data = decodeImage(b64padded);
-        std::string ct = string(b64data.begin(), b64data.end());
+        // unwrap from bmp
+        vector<unsigned char> ct_wrapped (sk_ct_str.begin(), sk_ct_str.end());
+        std::vector<unsigned char> ct_unwrapped = decodeImage(ct_wrapped);
         
-        params->SetProperty("ciphertext", ct);
-        
+        // ct_unwrapped contains ct struct
+        sk_ct_str = std::string(reinterpret_cast<char*>(ct_unwrapped.data()), ct_unwrapped.size());
+ 
     }
-    
-    return ski->decrypt(params);
+    sk_ciphertext_t ct;
+    stringstream ss(sk_ct_str);
+    sk_ciphertext_from_stream(&ct, ss);
+    return ski->decrypt(ct);
 }
  
-std::string BroadmaskAPI::decrypt_b64(std::string gid, std::string ct_data, bool image) {
-    BES_receiver *bci = istore->load_instance<BES_receiver>(gid);
-    
-    if (!bci) {
-        cout << "Sender instance " << gid << " not found" << endl;
-        return "";
-    }
-    
-    std::string ct_str = ct_data;
-    if (image) {
-        vector<unsigned char> b64padded,b64data;
-        vector_from_string(b64padded, ct_data);
-        b64data = decodeImage(b64data);
-        ct_str = std::string(b64data.begin(), b64data.end());
-        
-    }
-    ct_str = base64_decode(ct_str);
-    std::stringstream ctss(ct_str);
-            
-    bes_ciphertext_t ct;
-    ciphertext_from_stream(&ct, bci->gbs, ctss);
-    
-    return bci->bes_decrypt(ct);
-}
+
 
 /*
  * Instance Management
@@ -379,7 +426,9 @@ m_plugin(plugin), m_host(host) {
     registerMethod("create_sender_instance", make_method(this, &BroadmaskAPI::create_sender_instance));
     registerMethod("create_receiver_instance", make_method(this, &BroadmaskAPI::create_receiver_instance));
     registerMethod("create_shared_instance", make_method(this, &BroadmaskAPI::create_shared_instance));
+    registerMethod("get_bes_public_params", make_method(this, &BroadmaskAPI::get_bes_public_params));
     registerMethod("get_stored_instances", make_method(this, &BroadmaskAPI::get_stored_instances));
+    registerMethod("get_instance_descriptor", make_method(this, &BroadmaskAPI::get_instance_descriptor));
     registerMethod("get_instance_members", make_method(this, &BroadmaskAPI::get_instance_members));
     registerMethod("remove_instance", make_method(this, &BroadmaskAPI::remove_instance));    
     registerMethod("add_member", make_method(this, &BroadmaskAPI::add_member));
@@ -498,29 +547,44 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         gen_random(random, size-1);
         std::string message(random);
         step.restart();
-        ct_data = encrypt_b64("test", recipients, message, false);
+        FB::VariantMap enc_result = encrypt_b64("test", recipients, message, false);
+        ct_data = enc_result["ciphertext"].convert_cast<std::string>();
         
         cout << "(ENC): " << i << " " << step.elapsed() << endl;
         step.restart();
         
         cout << "(DEC): " << i << " ";
         for (int j = 0; j < i; ++j) {
-            rec_message_j = decrypt_b64(s[j], ct_data, false);        
-            if (message.compare(rec_message_j) != 0)
+            FB::VariantMap dec_result = decrypt_b64(s[j], ct_data, false);
+            try {
+                rec_message_j = dec_result["plaintext"].convert_cast<std::string>();
+                if (message.compare(rec_message_j) != 0) {
+                    cout << "Decrypting using Receiver " << s[j] << " incorrect: " << endl;
+                    return;
+                }
+            } catch (exception& e) {
                 cout << "Decrypting using Receiver " << s[j] << " incorrect: " << endl;
-            
-//            cout << "Decrypt [receiver " << s[j] << "]: " << step.elapsed() << endl;
+                return;
+            }
             cout << step.elapsed() << " ";
             step.restart();
         }
         
         for (int j = i; j < 256; ++j) {
             step.restart();
-            rec_message_j = decrypt_b64(s[j], ct_data, false);    
-            cout << step.elapsed() << " ";
-            if (message.compare(rec_message_j) == 0) {
-                cout << "Decrypting using Receiver " << s[j] << " should have been unsuccessful!: " << endl;
+            FB::VariantMap dec_result = decrypt_b64(s[j], ct_data, false);
+            try {
+                std::string error = dec_result["error"].convert_cast<std::string>();
+                
+                if (dec_result.find("plaintext") != dec_result.end()) {
+                    cout << "Decrypting using Receiver " << s[j] << " yielded a result, but should not" << endl;
+                    return;
+                }
+            } catch (exception& e) {
+                cout << "Decrypting using Receiver " << s[j] << " should yield an error, but seems like there wasn't: " << e.what() << endl;
+                return;
             }
+            cout << step.elapsed() << " ";
         }
         cout << endl;
         

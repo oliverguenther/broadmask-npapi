@@ -7,12 +7,15 @@
 #include "JSAPIAuto.h"
 #include "JSObject.h"
 #include "variant_map.h"
+#include "streamhelpers.hpp"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/set.hpp>
 #include <boost/serialization/base_object.hpp>
+
+
 
 
 class SK_Instance : public Instance  {
@@ -26,7 +29,7 @@ public:
     ~SK_Instance();
 
     FB::VariantMap encrypt(std::string plaintext);
-    FB::VariantMap decrypt(FB::JSObjectPtr params);
+    FB::VariantMap decrypt(sk_ciphertext_t sk_ct);
     
     /** 
      * storage functions currently not needed
@@ -41,7 +44,7 @@ private:
     int keylen;
     
     std::vector<unsigned char> key;
-    
+        
     //
     // Boost class serialization
     //

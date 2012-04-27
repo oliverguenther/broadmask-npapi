@@ -43,7 +43,7 @@ public:
     /**
      * @brief return instance members
      */
-    std::map<std::string, int> instance_members() {
+    virtual std::map<std::string, int> instance_members() {
         return members;
     };
     
@@ -51,7 +51,7 @@ public:
     /**
      * @brief add member to this instance
      */
-    int add_member(std::string id) {
+    virtual int add_member(std::string id) {
         // default: map all users to 0
         // BES_sender overrides this behavior for pseuodnyms
         
@@ -62,7 +62,7 @@ public:
     /**
      * @brief remove a member from this instance
      */
-    void remove_member(std::string id) {
+    virtual void remove_member(std::string id) {
         members.erase(id);
     }
     

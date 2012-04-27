@@ -17,5 +17,7 @@
 #include <vector>
 
 std::string base64_encode(std::string indata);
-std::string base64_decode(std::string indata);
 std::string base64_encode(const std::vector<unsigned char>& vec);
+
+std::string base64_decode(std::string indata);
+std::vector<unsigned char> base64_decode_vec(std::string indata);

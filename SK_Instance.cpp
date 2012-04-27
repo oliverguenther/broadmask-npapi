@@ -4,21 +4,18 @@
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
 
-#include "cryptlib.h"
+#include <cryptopp/cryptlib.h>
 using CryptoPP::BufferedTransformation;
 using CryptoPP::AuthenticatedSymmetricCipher;
 
-#include "filters.h"
+#include <cryptopp/filters.h>
 using CryptoPP::Redirector;
 using CryptoPP::StringSink;
 using CryptoPP::StringSource;
 using CryptoPP::AuthenticatedEncryptionFilter;
 using CryptoPP::AuthenticatedDecryptionFilter;
 
-#include "aes.h"
-using CryptoPP::AES;
-
-#include "gcm.h"
+#include <cryptopp/gcm.h>
 using CryptoPP::GCM;
 using CryptoPP::GCM_TablesOption;
 
@@ -33,7 +30,7 @@ using CryptoPP::AutoSeededRandomPool;
 #include "utils.h"
 
 
-#define IV_LENGTH 12
+#define AES_IV_LENGTH 12
 #define TAG_SIZE 12
 #define AES_DEFAULT_KEYSIZE 32
 
@@ -71,28 +68,26 @@ SK_Instance::SK_Instance(std::string groupid, std::string key_b64, int keysize) 
 
 SK_Instance::~SK_Instance() {
     key.clear();
+    members.clear();
 }
 
 
 FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
+    
+    
+    sk_ciphertext_t sk_ct = (sk_ciphertext_t) malloc(sizeof(struct sk_ciphertext_s));
     
     FB::VariantMap result;
     try {
         
         
         // Generate random IV
-        unsigned char iv[IV_LENGTH];
+        sk_ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
         AutoSeededRandomPool prng;
-        prng.GenerateBlock(iv, IV_LENGTH);
-        
-        
-        std::vector<unsigned char> iv_vec;
-        std::copy (iv, iv + IV_LENGTH, std::back_inserter(iv_vec)); 
-        
-        result["iv"] = base64_encode(iv_vec);
+        prng.GenerateBlock(sk_ct->iv, AES_IV_LENGTH);
         
         GCM< AES >::Encryption e;
-        e.SetKeyWithIV(&key[0], keylen, iv, IV_LENGTH);
+        e.SetKeyWithIV(&key[0], keylen, sk_ct->iv, AES_IV_LENGTH);
         
         std::string cipher;
         StringSource(plaintext, true,
@@ -101,53 +96,42 @@ FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
                                                        )
                      );
         
-        result["ciphertext"] = base64_encode(cipher);
+        sk_ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
+        sk_ct->ct_length = cipher.size();
+        memcpy(sk_ct->ct, cipher.c_str(), sk_ct->ct_length);  
         
+        result["success"] = true;
+        std::stringstream ss;
+        sk_ciphertext_to_stream(sk_ct, ss);
+        result["ciphertext"] = ss.str();
+        free_sk_ciphertext(sk_ct);
         
-        
-    } catch( CryptoPP::Exception& e )  {
+    } catch( exception& e )  {
         result["error"] = true;
         result["error_msg"] = e.what();
+        free_sk_ciphertext(sk_ct);
+        return result;
     }
     return result; 
 }
 
 
-FB::VariantMap SK_Instance::decrypt(FB::JSObjectPtr params) {
+FB::VariantMap SK_Instance::decrypt(sk_ciphertext_t sk_ct) {
     
     FB::VariantMap result;
-    
-    // Extract IV
-    std::string iv_b64 = params->GetProperty("iv").convert_cast<std::string>();
-    std::string iv_str = base64_decode(iv_b64);
-    
-    // Extract ciphertext
-    std::string cipher_b64 = params->GetProperty("ciphertext").convert_cast<std::string>();
-    std::string cipher = base64_decode(cipher_b64);
-    
-    unsigned char iv[IV_LENGTH];
-    memcpy(iv, iv_str.c_str(), IV_LENGTH);
-    
-
     std::string r_plaintext;
     
-    try
-    {
+    try {
         GCM< AES >::Decryption d;
-        d.SetKeyWithIV(&key[0], keylen, iv, IV_LENGTH);
+        d.SetKeyWithIV(&key[0], keylen, sk_ct->iv, AES_IV_LENGTH);
+        
+        string cipher(reinterpret_cast<char const*>(sk_ct->ct), sk_ct->ct_length);        
         
         AuthenticatedDecryptionFilter df( d,
                                          new StringSink( r_plaintext ),
                                          AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
                                          ); // AuthenticatedDecryptionFilter
         
-        // The StringSource dtor will be called immediately
-        //  after construction below. This will cause the
-        //  destruction of objects it owns. To stop the
-        //  behavior so we can get the decoding result from
-        //  the DecryptionFilter, we must use a redirector
-        //  or manually Put(...) into the filter without
-        //  using a StringSource.
         StringSource( cipher, true,
                      new Redirector( df /*, PASS_EVERYTHING */ )
                      ); // StringSource
@@ -159,8 +143,7 @@ FB::VariantMap SK_Instance::decrypt(FB::JSObjectPtr params) {
             return result;
         }
     }
-    catch( CryptoPP::Exception& e )
-    {
+    catch( CryptoPP::Exception& e ) {
         result["error"] = true;
         result["error_msg"] = e.what();
     }
@@ -170,6 +153,9 @@ FB::VariantMap SK_Instance::decrypt(FB::JSObjectPtr params) {
     return result;
     
 }
+
+
+
 
 std::string SK_Instance::instance_file() {
     boost::filesystem::path instance_path = get_instance_path("sk", gid);

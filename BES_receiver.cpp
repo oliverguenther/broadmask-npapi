@@ -8,34 +8,24 @@
 #include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
-#include <iostream>
-using std::cout;
-using std::cerr;
-using std::endl;
-
-#include <string>
-using std::string;
-
-#include <cstdlib>
-using std::exit;
-
 #include <cryptopp/cryptlib.h>
 using CryptoPP::Exception;
-
-#include <cryptopp/hex.h>
-using CryptoPP::HexEncoder;
-using CryptoPP::HexDecoder;
+using CryptoPP::BufferedTransformation;
+using CryptoPP::AuthenticatedSymmetricCipher;
 
 #include <cryptopp/filters.h>
+using CryptoPP::Redirector;
 using CryptoPP::StringSink;
 using CryptoPP::StringSource;
-using CryptoPP::StreamTransformationFilter;
+using CryptoPP::AuthenticatedEncryptionFilter;
+using CryptoPP::AuthenticatedDecryptionFilter;
 
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
 
-#include <cryptopp/modes.h>
-using CryptoPP::CFB_Mode;
+#include <cryptopp/gcm.h>
+using CryptoPP::GCM;
+using CryptoPP::GCM_TablesOption;
 
 // hkdf scheme, rfc5869
 #include "hkdf.h"
@@ -44,6 +34,10 @@ using CryptoPP::HMACKeyDerivationFunction;
 using CryptoPP::SHA256;
 
 #include "utils.h"
+
+#define AES_IV_LENGTH 12
+#define TAG_SIZE 12
+#define AES_DEFAULT_KEYSIZE 32
 
 namespace fs = boost::filesystem;
 using namespace std;
@@ -119,38 +113,48 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
     
 }
 
-string BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
-    
-
-    
+FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
     
     
-    unsigned char *derived_key = (unsigned char*) malloc(keylen * sizeof(unsigned char));
+    unsigned char derived_key[keylen];
     derivate_decryption_key(derived_key, raw_key);
-
+    
+    FB::VariantMap result;
+    
 	try {
-        string plaintext;
-		CFB_Mode< AES >::Decryption d;
-		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES::BLOCKSIZE);
+        string r_plaintext;
+        GCM< AES >::Decryption d;
+		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES_IV_LENGTH);
         
         string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
-		StringSource s(cipher, true, new StreamTransformationFilter(d, new StringSink(plaintext)));
-        delete[] derived_key;
-        return plaintext;
+        AuthenticatedDecryptionFilter df( d,
+                                         new StringSink( r_plaintext ),
+                                         AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
+                                         ); // AuthenticatedDecryptionFilter
         
-	}
-	catch(const CryptoPP::Exception& e) {
-        delete[] derived_key;
+        StringSource( cipher, true,
+                     new Redirector( df /*, PASS_EVERYTHING */ )
+                     ); // StringSource
+        
+        // If the object does not throw, here's the only
+        //  opportunity to check the data's integrity
+        if( true == df.GetLastResult() ) {
+            result["plaintext"] = r_plaintext;
+            return result;
+        }
+        
+	} catch(const CryptoPP::Exception& e) {
 		cerr << e.what() << endl;
-        return "";
-        
+        result["error"] = true;
+        result["error_msg"] = e.what();
 	}
     
-    
-    
+    result["error"] = true;
+    result["error_msg"] = "Invalid ciphertext";
+    return result;
     
 }
 
@@ -259,4 +263,9 @@ string BES_receiver::instance_file() {
 
 
 
-BES_receiver::~BES_receiver() {}
+BES_receiver::~BES_receiver() {
+    free_pubkey(PK, gbs);
+    free_bes_privkey(SK);
+    free_global_params(gbs);
+    members.clear();
+}
