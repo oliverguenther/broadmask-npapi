@@ -134,6 +134,8 @@ vector<unsigned char> decodeImage(vector<unsigned char> data) {
 //	cout << "linepadding: " << linepadding << endl;
 //	cout << "Embedded total size : " << payload << " -> " << out.size() << endl;
 //	cout << "filesize : " << data.size() << endl;
+    
+    return out;
 
 }
 
