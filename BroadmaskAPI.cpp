@@ -205,7 +205,88 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
 
 }
 
-FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
+FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool image) {
+    
+    int type = istore->instance_type(gid);
+    
+    FB::VariantMap result;
+    
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+        {
+            BES_sender *instance = istore->load_instance<BES_sender>(gid);
+            if (!instance) {
+                result["error"] = true;
+                result["error_msg"] = "Couldn't load sender instance";
+                return result;
+            }
+            std::map<std::string, int> members = instance->instance_members();
+            vector<std::string> receivers;
+            for(map<std::string, int>::iterator it = members.begin(); it != members.end(); ++it) {
+                receivers.push_back(it->first);
+            }
+
+            return bes_encrypt_b64(gid, receivers, data, image);
+            break;
+        }
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+        {
+            result["error"] = true;
+            result["error_msg"] = "Can't encrypt with a receiver instance";
+            break;
+        }
+        case BROADMASK_INSTANCE_SK:
+        {
+            return sk_encrypt_b64(gid, data, image);
+            break;
+        }
+        default:
+        {
+            result["error"] = true;
+            result["error_msg"] = "Unknown instance";
+            break;
+        }
+    }
+    
+    return result;
+    
+}
+
+FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool image) {
+    
+    int type = istore->instance_type(gid);
+    
+    FB::VariantMap result;
+    
+    switch (type) {
+        case BROADMASK_INSTANCE_BES_SENDER:
+        {
+            result["error"] = true;
+            result["error_msg"] = "Can't decrypt with a receiver instance";
+            break;
+        }
+        case BROADMASK_INSTANCE_BES_RECEIVER:
+        {
+            return bes_decrypt_b64(gid, data, image);
+        }
+        case BROADMASK_INSTANCE_SK:
+        {
+            return sk_decrypt_b64(gid, data, image);
+            break;
+        }
+        default:
+        {
+            result["error"] = true;
+            result["error_msg"] = "Unknown instance";
+            break;
+        }
+    }
+    
+    return result;
+    
+}
+
+FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
     BES_sender *bci = istore->load_instance<BES_sender>(gid);
     
     FB::VariantMap result;
@@ -238,7 +319,7 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, const std::vector<std:
 }
 
 
-FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string ct_data, bool image) {
+FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_data, bool image) {
     BES_receiver *bci = istore->load_instance<BES_receiver>(gid);
     
     if (!bci) {
@@ -438,6 +519,8 @@ m_plugin(plugin), m_host(host) {
     registerMethod("get_member_sk_gpg", make_method(this, &BroadmaskAPI::get_member_sk_gpg));
     registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
     registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
+    registerMethod("bes_encrypt_b64", make_method(this, &BroadmaskAPI::bes_encrypt_b64));
+    registerMethod("bes_decrypt_b64", make_method(this, &BroadmaskAPI::bes_decrypt_b64));
     registerMethod("test", make_method(this, &BroadmaskAPI::test));
     registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
     registerMethod("sk_decrypt_b64", make_method(this, &BroadmaskAPI::sk_decrypt_b64));
@@ -547,7 +630,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         gen_random(random, size-1);
         std::string message(random);
         step.restart();
-        FB::VariantMap enc_result = encrypt_b64("test", recipients, message, false);
+        FB::VariantMap enc_result = bes_encrypt_b64("test", recipients, message, false);
         ct_data = enc_result["ciphertext"].convert_cast<std::string>();
         
         cout << "(ENC): " << i << " " << step.elapsed() << endl;
@@ -555,7 +638,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         
         cout << "(DEC): " << i << " ";
         for (int j = 0; j < i; ++j) {
-            FB::VariantMap dec_result = decrypt_b64(s[j], ct_data, false);
+            FB::VariantMap dec_result = bes_decrypt_b64(s[j], ct_data, false);
             try {
                 rec_message_j = dec_result["plaintext"].convert_cast<std::string>();
                 if (message.compare(rec_message_j) != 0) {
@@ -572,7 +655,7 @@ void BroadmaskAPI::testsuite(const FB::JSObjectPtr &callback) {
         
         for (int j = i; j < 256; ++j) {
             step.restart();
-            FB::VariantMap dec_result = decrypt_b64(s[j], ct_data, false);
+            FB::VariantMap dec_result = bes_decrypt_b64(s[j], ct_data, false);
             try {
                 std::string error = dec_result["error"].convert_cast<std::string>();
                 

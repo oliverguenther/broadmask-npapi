@@ -87,7 +87,7 @@ public:
 
 
     /** 
-     * @fn BroadmaskAPI::encrypt_b64
+     * @fn BroadmaskAPI::bes_encrypt_b64
      * @brief Encrypt a base64 encoded string
      *
      * @param gid instance id
@@ -97,10 +97,10 @@ public:
      *
      * @return encrypted binary data, base64 encoded
      */
-    FB::VariantMap encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image);
+    FB::VariantMap bes_encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image);
     
     /** 
-     * @fn BroadmaskAPI::decrypt_b64
+     * @fn BroadmaskAPI::bes_decrypt_b64
      * @brief Decrypt base64 encoded binary data
      * 
      * @param gid instance id
@@ -110,7 +110,33 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);
+    FB::VariantMap bes_decrypt_b64(std::string gid, std::string ct_data, bool image);
+    
+    /** 
+     * @fn BroadmaskAPI::encrypt_b64
+     * @brief Encrypt a base64 encoded string. Detects instance type
+     *
+     * @param gid instance id
+     * @param receivers Space-separated string of receiver id's
+     * @param data base64 encoded string
+     * @param image true if data should be wrapped as a image after encryption
+     *
+     * @return encrypted binary data, base64 encoded
+     */
+    FB::VariantMap encrypt_b64(std::string gid, std::string ct_data, bool image);
+    
+    /** 
+     * @fn BroadmaskAPI::decrypt_b64
+     * @brief Decrypt base64 encoded binary data. Detects instance type
+     * 
+     * @param gid instance id
+     * @param receivers Space-separated string of receiver id's
+     * @param data base64 encoded binary data
+     * @param image true if data should be unwrapped prior to decryption
+     *
+     * @return plaintext binary data, base64 encoded
+     */    
+    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);    
     
     void test(const FB::JSObjectPtr &callback);
     void testsuite(const FB::JSObjectPtr &callback);
