@@ -24,18 +24,21 @@ public:
     // Required for De-Serialization
     SK_Instance() : Instance() {}
     SK_Instance(std::string groupid);
-    SK_Instance(std::string groupid, std::string key_b64, int keysize);
+    SK_Instance(std::string groupid, std::string key_b64);
     
     ~SK_Instance();
 
     FB::VariantMap encrypt(std::string plaintext);
     FB::VariantMap decrypt(sk_ciphertext_t sk_ct);
     
+    
+    std::vector<unsigned char> get_symmetric_key();
+    
     /** 
      * storage functions currently not needed
      */
-    int store() { return -1; }
-    int restore() { return -1; }
+    int store();
+    int restore();
     
     std::string instance_file();
     

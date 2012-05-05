@@ -19,6 +19,7 @@
 #include "Base64.h"
 #include "UserStorage.hpp"
 #include "InstanceStorage.hpp"
+#include "Benchmarks.hpp"
 
 
 #include <boost/filesystem/path.hpp>
@@ -51,6 +52,8 @@ public:
     void create_receiver_instance(std::string gid, std::string name, int N, std::string params, std::string private_key);
     
     void create_shared_instance(std::string gid, std::string name);
+    void create_shared_instance_withkey(std::string gid, std::string name, std::string key_b64);
+
 
     
     /**
@@ -61,6 +64,8 @@ public:
      * @return base64 encoded private_key_t
      */
     std::string get_member_sk(std::string gid, std::string sysid);
+    
+    std::string get_symmetric_key(std::string gid);
     
     /**
      * @fn BroadmaskAPI::get_member_sk_gpg
@@ -138,8 +143,9 @@ public:
      */    
     FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);    
     
-    void test(const FB::JSObjectPtr &callback);
-    void testsuite(const FB::JSObjectPtr &callback);
+    
+    void run_benchmark(std::string target_folder, const FB::JSObjectPtr &callback);
+    void test(std::string target_folder, const FB::JSObjectPtr &callback);
     
     
     /**
@@ -215,6 +221,15 @@ public:
     FB::VariantMap get_stored_instances();
     
     void remove_instance(std::string id);
+    
+    void run_bes_benchmark(std::string output_folder, int max_users, int max_size, bool as_iamge, int passes);
+    bes_encryption_times run_bes_encryption(std::string sender_instance, 
+                                                          std::vector<std::string>& decrypt_instances, std::vector<std::string>& receivers, std::string& message, bool asImage);
+    
+    bes_setup_times run_bes_setup(std::string sender_instance, int N, std::vector<std::string>& decrypt_instances, bool remove_after);
+    
+    void run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes);
+
 
     
     

@@ -165,6 +165,7 @@ public:
     std::string start_sender_instance(std::string id, std::string name, int N);
     void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);
     void start_shared_instance(std::string id, std::string name);
+    void start_shared_instance_withkey(std::string id, std::string name, std::string key_b64);
     
     static void archive(InstanceStorage *storage);
     static InstanceStorage* unarchive();

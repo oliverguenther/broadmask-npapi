@@ -87,6 +87,45 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, ostream&
     os.write(reinterpret_cast<char*>(ct->ct), ct->ct_length);
 }
 
+//void debug_ciphertext(bes_ciphertext_t ct) {
+//    cout << "*** CIPHERTEXT DEBUG ***" << endl;
+//    cout << "Receivers" << ct->num_receivers << endl;
+//    cout << "CT length" << ct->ct_length << endl << endl;
+//    
+//    cout << "RECEIVERS: ";
+//    for (int i = 0; i < ct->num_receivers; ++i) {
+//        cout << ct->receivers[i] << " ";
+//    }
+//    cout << endl << endl;
+//    
+//    cout << "IV ";
+//    for (int i = 0; i < AES_IV_LENGTH; ++i) {
+//        cout << hex << (int) ct->iv[i] << " ";
+//    }
+//    
+//    cout << endl << endl;
+//
+//    cout << "CT ";
+//    for (int i = 0; i < ct->ct_length; ++i) {
+//        cout << hex << (int) ct->ct[i] << dec << " ";
+//    }
+//    
+//    cout << endl << " *** END ** " << endl;
+//}
+//
+//void debug_key(unsigned char* key, int keylen) {
+//    cout << "*** KEY DEBUG ***" << endl;
+//    
+//    for (int i = 0; i < keylen; ++i) {
+//        cout << hex << (int) key[i] << dec << " ";
+//    }
+//    
+//    
+//    cout << endl << " *** END ** " << endl;
+//
+//    
+//}
+
 void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, ostream& os) {
     int version = 0;
     os << version << " ";

@@ -49,19 +49,15 @@ SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {
     
 }
 
-SK_Instance::SK_Instance(std::string groupid, std::string key_b64, int keysize) : Instance(groupid) {
+
+SK_Instance::SK_Instance(std::string groupid, std::string key_b64) : Instance(groupid) {
     
-    // Copy key
-    std::string key_str = base64_decode(key_b64);
-    
-    keylen = keysize;
+    // Clear key
     key.clear();
     
-    std::stringstream ss(key_str);
-    unsigned char b;
-    
-    while (ss >> b)
-        key.push_back(b);
+    // Decode key from base64
+    key = base64_decode_vec(key_b64);
+    keylen = key.size();
         
 }
 
@@ -69,6 +65,18 @@ SK_Instance::SK_Instance(std::string groupid, std::string key_b64, int keysize) 
 SK_Instance::~SK_Instance() {
     key.clear();
     members.clear();
+}
+
+int SK_Instance::store() { 
+    return -1; 
+}
+
+int SK_Instance::restore() { 
+    return -1; 
+}
+
+std::vector<unsigned char> SK_Instance::get_symmetric_key() {
+    return key;
 }
 
 

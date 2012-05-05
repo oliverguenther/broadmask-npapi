@@ -78,5 +78,7 @@ void free_sk_ciphertext(sk_ciphertext_t ct);
 void free_bes_ciphertext(bes_ciphertext_t ct, bes_global_params_t gbs);
 void free_bes_privkey(bes_privkey_t sk);
 
+//void debug_ciphertext(bes_ciphertext_t ct);
+//void debug_key(unsigned char* key, int keylen);
 
 #endif

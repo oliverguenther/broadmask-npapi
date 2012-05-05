@@ -44,9 +44,7 @@ using namespace std;
 
 
 BES_receiver::BES_receiver(string groupid, int max_users, string public_data, string private_key) : Instance(groupid) {
-    
-    cout << "Setting up " << gid << " as decryption system" << endl;    
-    
+
     istringstream public_params(public_data);
     
     int element_size;
@@ -107,7 +105,7 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
         
     } catch (const CryptoPP::Exception& e) {
         delete[] buf;
-        cerr << e.what() << endl;
+        cerr << "HKDF error " << e.what() << endl;
         return 0;
     }
     
@@ -117,7 +115,6 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
-    
     
     unsigned char derived_key[keylen];
     derivate_decryption_key(derived_key, raw_key);
@@ -147,7 +144,6 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
         }
         
 	} catch(const CryptoPP::Exception& e) {
-		cerr << e.what() << endl;
         result["error"] = true;
         result["error_msg"] = e.what();
 	}
@@ -166,7 +162,6 @@ int BES_receiver::restore() {
     string bcfile = instance_file();
 
     if (!fs::is_regular_file(bcfile)) {
-        cout << "No saved instance of " << gid << endl;
         return 1;
     }
     
@@ -220,9 +215,6 @@ int BES_receiver::restore() {
 
 int BES_receiver::store() {
     string bcfile = instance_file();
-    
-    cout << "Storing BES to " << bcfile << endl;
-    
     
     ofstream os(bcfile.c_str(), std::ios::out|std::ios::binary);
     int version = 0;

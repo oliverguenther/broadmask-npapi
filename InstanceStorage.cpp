@@ -226,7 +226,6 @@ std::string InstanceStorage::start_sender_instance(string id, string name, int N
     
     // check for cached instance
     if (instance) {
-        cout << "Sending Instance " << id << " is already loaded" << endl;
         instance->public_params_to_stream(params);
         return base64_encode(params.str());
     }
@@ -252,7 +251,6 @@ void InstanceStorage::start_receiver_instance(string id, string name, int N, str
     
     // check for cached instance
     if (instance) {
-        cout << "Receiving Instance " << id << " is already loaded" << endl;
         return;
     }
     
@@ -276,7 +274,6 @@ void InstanceStorage::start_shared_instance(std::string id, std::string name) {
     SK_Instance* instance = load_instance<SK_Instance>(id);
     
     if (instance) {
-        cout << "Shared instance " << id << " is already loaded" << endl;
         return;
     }
     
@@ -292,6 +289,25 @@ void InstanceStorage::start_shared_instance(std::string id, std::string name) {
 
 }
 
+void InstanceStorage::start_shared_instance_withkey(std::string id, std::string name, std::string key_b64) {
+    SK_Instance* instance = load_instance<SK_Instance>(id);
+    
+    if (instance) {
+        // remove instance
+        remove_instance(id);
+    }
+    
+    // record instance
+    InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_SK, 0);
+    instances.insert(id, desc);
+    
+    instance = new SK_Instance(id, key_b64);
+    loaded_instances.insert(id,instance);
+    store_instance<SK_Instance>(instance);
+    InstanceStorage::archive(this);
+    
+    
+}
 
 
 FB::VariantMap InstanceStorage::instance_description(std::string id) {

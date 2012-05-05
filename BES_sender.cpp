@@ -41,12 +41,17 @@ using CryptoPP::AutoSeededRandomPool;
 #define AES_IV_LENGTH 12
 #define TAG_SIZE 12
 #define AES_DEFAULT_KEYSIZE 32
+#define SENDER_MEMBER_ID "myself"
 
 #include "utils.h"
 
 namespace fs = boost::filesystem;
 using namespace std;
 
+/**
+ * struct for the std::generate method to produce
+ * free identifiers from 1 to N-1
+ */
 struct inc_index {
     int cur;
     inc_index() {cur=0;}
@@ -54,7 +59,6 @@ struct inc_index {
 } FillIndex;
 
 BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
-    cout << "Setting up " << gid << " as encryption system" << endl;
     
     
     N = num_users;
@@ -68,6 +72,10 @@ BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
     availableIDs.resize(num_users);
     generate(availableIDs.begin(), availableIDs.end(), FillIndex);
     
+    // Add myself as 0. user
+    add_member(SENDER_MEMBER_ID);
+    get_private_key(&SK, SENDER_MEMBER_ID);
+    
 }
 
 BES_sender::BES_sender(const BES_sender& b) {
@@ -76,6 +84,7 @@ BES_sender::BES_sender(const BES_sender& b) {
     members = b.members;
     gid = b.gid;
     sys = b.sys;
+    SK = b.SK;
     availableIDs = b.availableIDs;
     setup_global_system(&gbs, params, N);
 }
@@ -123,7 +132,10 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
     
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
     sk->id = id;
-    memcpy(sk->privkey, sys->d_i[id], sizeof(element_t));
+    
+    element_init(sk->privkey, gbs->pairing->G1);
+	element_set(sk->privkey, sys->d_i[id]);
+    
     *sk_ptr = sk;
 }
 
@@ -137,9 +149,15 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 }
     
 
-void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<string>& S, std::string& data) {
+void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& data) {
     
     bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
+    
+    // Ensure myself is added to S
+    std::vector<std::string> S (receivers);
+    std::vector<std::string>::iterator it = std::find(S.begin(), S.end(), "myself");
+    if (it == S.end())
+        S.push_back(SENDER_MEMBER_ID);
     
     // Receivers
     ct->num_receivers = S.size();
@@ -147,11 +165,12 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<string>& S
     ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
         
     int i = 0;
-    for (vector<string>::const_iterator it = S.begin(); it != S.end(); ++it) {
+    for (std::vector<string>::const_iterator it = S.begin(); it != S.end(); ++it) {
         int id = member_id(*it);
         if (id == -1) {
             cout << "Member " << *it << " is not member of this group" << endl;
             free(ct->receivers);
+            free(ct);
             return;
         }
         ct->receivers[i] = id;
@@ -191,12 +210,56 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<string>& S
         ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
         ct->ct_length = cipher.size();
         memcpy(ct->ct, cipher.c_str(), ct->ct_length);  
-        *cts = ct;
+        *cts = ct;        
         
 	} catch(const CryptoPP::Exception& e) {
-		cerr << e.what() << endl;
+		cerr << "HKDF enc error" << e.what() << endl;
         ct = NULL;
 	}
+    
+}
+
+FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
+    
+    element_t raw_key;
+    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, sys->PK);
+    
+    unsigned char derived_key[AES_DEFAULT_KEYSIZE];
+    derivate_encryption_key(derived_key, AES_DEFAULT_KEYSIZE, raw_key);
+
+    
+    FB::VariantMap result;
+    
+	try {
+        string r_plaintext;
+        GCM< AES >::Decryption d;
+		d.SetKeyWithIV(derived_key, AES_DEFAULT_KEYSIZE, cts->iv, AES_IV_LENGTH);
+        
+        string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
+        AuthenticatedDecryptionFilter df( d,
+                                         new StringSink( r_plaintext ),
+                                         AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
+                                         ); // AuthenticatedDecryptionFilter
+        
+        StringSource( cipher, true,
+                     new Redirector( df /*, PASS_EVERYTHING */ )
+                     ); // StringSource
+        
+        // If the object does not throw, here's the only
+        //  opportunity to check the data's integrity
+        if( true == df.GetLastResult() ) {
+            result["plaintext"] = r_plaintext;
+            return result;
+        }
+        
+	} catch(const CryptoPP::Exception& e) {
+        result["error"] = true;
+        result["error_msg"] = e.what();
+	}
+    
+    result["error"] = true;
+    result["error_msg"] = "Invalid ciphertext";
+    return result;
     
 }
 
@@ -221,6 +284,8 @@ void BES_sender::derivate_encryption_key(unsigned char *key, size_t keylen, elem
                    salt, 53, // Salt
                    NULL, 0 // context information
                    );
+    
+    delete[] buf;
 }
 
 int BES_sender::restore() {
@@ -231,7 +296,6 @@ int BES_sender::restore() {
     string bcfile = instance_file();
     
     if (!fs::is_regular_file(bcfile)) {
-        cout << "No saved instance of " << gid << endl;
         return 1;
     }
     
@@ -271,11 +335,15 @@ int BES_sender::restore() {
         element_from_stream(sys->PK->v_i[i], gbs, bcs, element_size);
     }
     
-    // Store private keys
+    // Restore private keys
     sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));        
     for (i = 0; i < (int) N; ++i) {
         element_from_stream(sys->d_i[i], gbs, bcs, element_size);
     }
+    
+    // Restore my own private key
+    private_key_from_stream(&SK, gbs, bcs, element_size);
+    
     
     return 0;
     
@@ -284,9 +352,7 @@ int BES_sender::restore() {
 }
 
 int BES_sender::store() {
-    string bcfile = instance_file();
-    cout << "Storing BES to " << bcfile << endl;
-    
+    string bcfile = instance_file();    
     
     ofstream os(bcfile.c_str(), std::ios::out|std::ios::binary);
     int version = 0;
@@ -314,6 +380,9 @@ int BES_sender::store() {
     for (i = 0; i < (int) N; ++i) {
         element_to_stream(sys->d_i[i], os);
     }
+    
+    // Store my own private key
+    private_key_to_stream(SK, os);
     
     return 0;
     

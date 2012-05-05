@@ -6,6 +6,7 @@
 #include <vector>
 #include "Instance.hpp"
 #include "streamhelpers.hpp"
+#include "variant_map.h"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
@@ -37,6 +38,11 @@ public:
      * @param data binary data to encrypt
      */
     void bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& S, std::string& data);
+    
+    /**
+     * Decrypt ciphertext using Broadcast system
+     */
+    FB::VariantMap bes_decrypt(bes_ciphertext_t& cts);
     
     
     /** 
@@ -107,6 +113,11 @@ private:
      * BES encryption scheme
      */
     bes_system_t sys;
+    
+    /**
+     * The sender's private key to decrypt all messages
+     */
+    bes_privkey_t SK;
     
     /*
      * IDs available in the system
