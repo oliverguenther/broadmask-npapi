@@ -601,26 +601,26 @@ void gen_random(char *s, const int len) {
     s[len] = 0;
 }
 
-void BroadmaskAPI::run_benchmark(std::string target_folder, const FB::JSObjectPtr &callback) {
+void BroadmaskAPI::run_benchmark(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback) {
     boost::thread t(boost::bind(&BroadmaskAPI::test,
-                                this, target_folder, callback));
+                                this, target_folder, max_receivers, passes, callback));
 }
 
 
-void BroadmaskAPI::test(std::string target_folder, const FB::JSObjectPtr &callback) {
+void BroadmaskAPI::test(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback) {
     
     int sizes[6] = {10, 100, 1000, 5000, 10000, 50000};
     for (int i = 0; i < 6; ++i) {
-        run_bes_benchmark("/Users/oliver/uni/ba/benchmark", 256, sizes[i], false, 1);
+        run_bes_benchmark(target_folder, max_receivers, sizes[i], false, passes);
         cout << "completed BES benchmark, 256 receivers, Plaintext sized: " << sizes[i] << endl;
         callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
-        run_bes_benchmark("/Users/oliver/uni/ba/benchmark", 256, sizes[i], true, 1);
+        run_bes_benchmark(target_folder, max_receivers, sizes[i], true, passes);
         cout << "completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;        
         callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
-        run_sk_benchmark("/Users/oliver/uni/ba/benchmark", 256, sizes[i], false, 1);
+        run_sk_benchmark(target_folder, max_receivers, sizes[i], false, passes);
         cout << "completed SK benchmark, 256 receivers, Plaintext sized: " << sizes[i] << endl;
         callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
-        run_sk_benchmark("/Users/oliver/uni/ba/benchmark", 256, sizes[i], true, 1);
+        run_sk_benchmark(target_folder, max_receivers, sizes[i], true, passes);
         cout << "completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;
         callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
     }
@@ -628,12 +628,7 @@ void BroadmaskAPI::test(std::string target_folder, const FB::JSObjectPtr &callba
 }
 
 void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes) {
-    std::vector<std::string> receiving_instances;
-    for (int i = 1; i < max_users; i++) {
-        std::string user = boost::lexical_cast<std::string>(i);
-        receiving_instances.push_back(user);
-    }
-    
+   
     // Output streams
     boost::filesystem::path folder(output_folder);
     
@@ -650,6 +645,7 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
     boost::filesystem::path target (folder / target_file);
     ofstream os (target.string().c_str());
     
+    cout << "BroadMask SK benchmark using " << file_size << " KB random plaintext. " << (as_image ? " (wrapped as Bitmap) " : "") << "  averaged over " << passes << " # of passes " << endl;
     os << "# BroadMask SK benchmark using " << file_size << " KB random plaintext. " << (as_image ? " (wrapped as Bitmap) " : "") << "  averaged over " << passes << " # of passes " << endl;
     os << "# Columns: <user size> <encryption_average> <decryption_average> <ciphertext_size>" << endl;
     
@@ -658,11 +654,9 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
     for (int size = 4; size <= max_users; size *= 4) {
         
         double enc_avg = 0, dec_avg = 0, ct_size = 0;
-        
-        // Set receivers for current size
-        std::vector<std::string> receivers (receiving_instances.begin(), receiving_instances.begin() + (size-1));
-        
+
         for (int i = 0; i < passes; ++i) {
+            cout << "[PASS " << i+1 << "/" << passes << "]" << endl;
             create_shared_instance("sk_benchmark_sender", "SK test sending instance");
             std::string key = get_symmetric_key("sk_benchmark_sender");
             
@@ -675,6 +669,8 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
             timer.restart();
             FB::VariantMap enc_result = sk_encrypt_b64("sk_benchmark_sender", message, as_image);
             enc_avg += timer.elapsed();
+            cout << "-> encryption " << timer.elapsed() << endl;
+
             
             std::string ct_data;
             try {
@@ -685,40 +681,41 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
             }
             
             timer.restart();
+            
             sk_decrypt_b64("sk_benchmark_sender", ct_data, as_image);
             dec_avg += timer.elapsed();
-            for (std::vector<std::string>::iterator it = receivers.begin(); it != receivers.end(); ++it) {
-                create_shared_instance_withkey(*it, "receiver sk test", key);
-                std::string rec_key = get_symmetric_key(*it);
+            cout << "-> Decryption "<< timer.elapsed() << endl;
+            
+            
+            // compute decrypt passes using first receiver
+            create_shared_instance_withkey("sk_benchmark_receiver", "receiver sk test", key);
+            std::string rec_key = get_symmetric_key("sk_benchmark_sender");
                 
-                if (key.compare(rec_key) != 0) {
-                    cout << "KEYS are not identical" << endl;
-                    cout << "**** " << key << "****" << endl;
-                    cout << "**** " << rec_key << "****" << endl;
-                    return;
+            if (key.compare(rec_key) != 0) {
+                cout << "KEYS are not identical" << endl;
+                cout << "**** " << key << "****" << endl;
+                cout << "**** " << rec_key << "****" << endl;
+                return;
+            }
+                
+                
+            timer.restart();
+            FB::VariantMap dec_result = sk_decrypt_b64("sk_benchmark_receiver", ct_data, as_image);
+            dec_avg += timer.elapsed();
+                
+            try {
+                std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
+                if (message.compare(rec_message) != 0) {
+                    throw "Plaintext were not equal";
                 }
                 
-                
-                timer.restart();
-                FB::VariantMap dec_result = sk_decrypt_b64(*it, ct_data, as_image);
-                dec_avg += timer.elapsed();
-                
-                try {
-                    std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
-                    if (message.compare(rec_message) != 0) {
-                        throw "Plaintext were not equal";
-                    }
-                    
-                } catch (exception& e) {
-                    std::string error = dec_result["error_msg"].convert_cast<std::string>();
-                    cerr << "ERROR for decrypting instance " << *it << ". No recovered message found - Error was: " << e.what() << " - " << error << endl;
-                }
-                
-                // remove receiver instance
-                remove_instance(*it);
+            } catch (exception& e) {
+                std::string error = dec_result["error_msg"].convert_cast<std::string>();
+                cerr << "ERROR for decrypting instance: No recovered message found - Error was: " << e.what() << " - " << error << endl;
             }
             
-            dec_avg /= size;
+            // remove receiver instance
+            remove_instance("sk_benchmark_receiver");
             
             
         }
@@ -739,6 +736,8 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
 }
 
 void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes) {
+    
+    // setup max receivers once
     std::vector<std::string> receiving_instances;
     for (int i = 1; i < max_users; i++) {
         std::string user = boost::lexical_cast<std::string>(i);
@@ -763,7 +762,8 @@ void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, i
     if (!boost::filesystem::exists(target))
         boost::filesystem::remove(target);
     ofstream os (target.string().c_str());
-    
+
+    cout << "BroadMask benchmark using " << file_size << " KB random plaintext. " << (as_image ? " (wrapped as Bitmap) " : "") << "  averaged over " << passes << " # of passes " << endl;
     os << "# BroadMask benchmark using " << file_size << " KB random plaintext. " << (as_image ? " (wrapped as Bitmap) " : "") << "  averaged over " << passes << " # of passes " << endl;
     os << "# Columns: <user size> <setup_average> <receiver_setup_average> <encryption_average> <decryption_average> <publickey-size> <ciphertext_size>" << endl;
 
@@ -773,28 +773,28 @@ void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, i
 
         bes_setup_times *s = new bes_setup_times[passes];
         bes_encryption_times *e = new bes_encryption_times[passes];
+        
+        std::vector<std::string> receivers (receiving_instances.begin(), receiving_instances.begin() + (size -1));
 
         double setup_avg = 0, rsetup_avg = 0;
         double enc_avg = 0, dec_avg = 0;
         double pk_size_avg = 0, ct_size_avg = 0;
         for (int i = 0; i < passes; ++i) {
-                        
+            
+            cout << "[PASS " << i+1 << "/" << passes << "]" << endl;
             // remove old instances
-            remove_instance("bes_benchmark");
-            for (std::vector<std::string>::iterator it = receiving_instances.begin();
-                 it != receiving_instances.end(); ++it) {
+            remove_instance("bes_benchmark_sender");
+            for (std::vector<std::string>::iterator it = receivers.begin(); it != receivers.end(); ++it) {
                 remove_instance(*it);
             }
             
-            // Set receivers for current size
-            std::vector<std::string> receivers (receiving_instances.begin(), receiving_instances.begin() + (size-1));
-
             // setup phase
-            s[i] = run_bes_setup("bes_benchmark", size, receivers, false);
+            s[i] = run_bes_setup("bes_benchmark_sender", size, receivers, false);
             
             pk_size_avg += s[i].public_key_size;
             setup_avg += s[i].setup_time;
             
+            // add receiver times (sender, receiver) + average
             double r_pass_avg = 0;
             for (std::vector<double>::iterator it = s[i].receiver_setup_times.begin(); 
                  it != s[i].receiver_setup_times.end(); ++it) {
@@ -803,12 +803,13 @@ void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, i
             rsetup_avg += (r_pass_avg / s[i].receiver_setup_times.size());
             
             // encryption phase
+            cout << "-> encryption " << endl;
             char *buffer = new char[(1000 * file_size) + 1];
             gen_random(buffer, (1000 * file_size));
             
             std::string message(buffer);
             //cout << "Running bes encryption with " << receivers.size() + 1 << " / " << receiving_instances.size() + 1 << " and message size " << message.size() << endl;
-            e[i] = run_bes_encryption("bes_benchmark", receiving_instances, receivers, message, as_image);
+            e[i] = run_bes_encryption("bes_benchmark_sender", receivers, receivers.at(0), message, as_image);
 
             delete[] buffer;
             message.erase();
@@ -857,17 +858,21 @@ bes_setup_times BroadmaskAPI::run_bes_setup(std::string sender_instance, int N, 
     std::string public_params = create_sender_instance(sender_instance, "benchmark instance", N);
     times.setup_time = timer.elapsed();
     times.public_key_size = public_params.size();
-    
-    
+    cout << "-> Setup " << times.setup_time << endl;
+    cout << "Adding receiver ";
     for (std::vector<std::string>::iterator it = decrypt_instances.begin(); it != decrypt_instances.end(); ++it) {
+        cout << *it << " ";
         add_member(sender_instance, *it);
         timer.restart();
         std::string sk = get_member_sk(sender_instance, *it);
         create_receiver_instance(*it, "benchmark receiver", N, public_params, sk);
-        times.receiver_setup_times.push_back(timer.elapsed());
+        double rsetup_time = timer.elapsed();
+        cout << "(" << rsetup_time << "s) ";
+        times.receiver_setup_times.push_back(rsetup_time);
         if (remove_after)
             remove_instance(*it);
     }
+    cout << endl;
     
     if (remove_after)
         remove_instance(sender_instance);
@@ -876,13 +881,15 @@ bes_setup_times BroadmaskAPI::run_bes_setup(std::string sender_instance, int N, 
     
 }
 
-bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instance, std::vector<std::string>& decrypt_instances, std::vector<std::string>& receivers, std::string& message, bool asImage) {
+bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instance, std::vector<std::string>& receivers, std::string receiver_instance, std::string& message, bool asImage) {
     
     bes_encryption_times times;
     
     boost::timer timer;
     FB::VariantMap enc_result = bes_encrypt_b64(sender_instance, receivers, message, asImage);
     times.enc_time = timer.elapsed();
+    cout << "-> sender encryption " << times.enc_time << endl;
+
     
     
     std::string ct_data;
@@ -896,6 +903,7 @@ bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instanc
     
     // test sender decryption
     timer.restart();
+    cout << "-> sender decryption " << endl;
     FB::VariantMap dec_result = bes_decrypt_b64(sender_instance, ct_data, asImage);
     times.dec_times.push_back(timer.elapsed());
     // Should be able to decrpyt
@@ -910,43 +918,22 @@ bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instanc
         cerr << "ERROR for decrypting with sender instance " << sender_instance << ". No recovered message found - Error was: " << e.what() << " - " << error << endl;
     }
     
-    // test receivers
-    
-    for (int r = 0; r < decrypt_instances.size(); ++r) {
-        timer.restart();
-        dec_result = bes_decrypt_b64(decrypt_instances[r], ct_data, asImage);
-        if (std::find(receivers.begin(), receivers.end(), decrypt_instances[r]) != receivers.end()) {
-            
-            // Only record successful operations, others are constant
-            times.dec_times.push_back(timer.elapsed());
-            // Should be able to decrpyt
-            try {
-            std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
-                if (message.compare(rec_message) != 0) {
-                    throw "Plaintext were not equal";
-                }
+    // decrypt using one receiver
+    timer.restart();
+    dec_result = bes_decrypt_b64(receiver_instance, ct_data, asImage);
+    double rec_time = timer.elapsed();
+    times.dec_times.push_back(rec_time);
+    cout << "-> receiver decryption " << rec_time<< endl;
 
-            } catch (exception& e) {
-                std::string error = dec_result["error_msg"].convert_cast<std::string>();
-                cerr << "ERROR for decrypting instance " << decrypt_instances[r] << ". No recovered message found - Error was: " << e.what() << " - " << error << endl;
-            }
-
-            
-        } else {
-            // Should be unable to decrypt
-            try {
-                bool iserror = dec_result["error"].convert_cast<bool>();
-                dec_result["error_msg"].convert_cast<std::string>();
-                if (!iserror)
-                    throw "Should contain an error";
-            } catch (exception& e) {
-                std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
-                if (message.compare(rec_message) == 0) {
-                    cout << "ERROR: Decrypting using Receiver " << decrypt_instances[r] << " should have failed: " << endl;
-                }
-            }
+    try {
+    std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
+        if (message.compare(rec_message) != 0) {
+            throw "Plaintext were not equal";
         }
-        
+
+    } catch (exception& e) {
+        std::string error = dec_result["error_msg"].convert_cast<std::string>();
+        cerr << "ERROR for decrypting instance " << receiver_instance << ". No recovered message found - Error was: " << e.what() << " - " << error << endl;
     }
     
     return times;

@@ -144,8 +144,8 @@ public:
     FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);    
     
     
-    void run_benchmark(std::string target_folder, const FB::JSObjectPtr &callback);
-    void test(std::string target_folder, const FB::JSObjectPtr &callback);
+    void run_benchmark(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback);
+    void test(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback);
     
     
     /**
@@ -224,7 +224,7 @@ public:
     
     void run_bes_benchmark(std::string output_folder, int max_users, int max_size, bool as_iamge, int passes);
     bes_encryption_times run_bes_encryption(std::string sender_instance, 
-                                                          std::vector<std::string>& decrypt_instances, std::vector<std::string>& receivers, std::string& message, bool asImage);
+                                            std::vector<std::string>& decrypt_instances, std::string receiving_instance, std::string& message, bool asImage);
     
     bes_setup_times run_bes_setup(std::string sender_instance, int N, std::vector<std::string>& decrypt_instances, bool remove_after);
     
