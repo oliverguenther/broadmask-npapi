@@ -702,6 +702,7 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
             timer.restart();
             FB::VariantMap dec_result = sk_decrypt_b64("sk_benchmark_receiver", ct_data, as_image);
             dec_avg += timer.elapsed();
+            dec_avg /= 2;
                 
             try {
                 std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
@@ -716,6 +717,7 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
             
             // remove receiver instance
             remove_instance("sk_benchmark_receiver");
+
             
             
         }
