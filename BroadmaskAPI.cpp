@@ -218,7 +218,9 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
     std::map<std::string, int> members = instance->instance_members();
     for (std::map<std::string, int>::iterator it = members.begin();
          it != members.end(); ++it) {
-        result[it->first] = it->second;
+        // Ignore my own key
+        if (it->first != "myself")
+            result[it->first] = it->second;
     }
     
     return result;

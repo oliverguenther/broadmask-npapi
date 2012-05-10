@@ -31,7 +31,7 @@ using CryptoPP::AutoSeededRandomPool;
 
 
 #define AES_IV_LENGTH 12
-#define TAG_SIZE 12
+#define TAG_SIZE 16
 #define AES_DEFAULT_KEYSIZE 32
 
 SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {

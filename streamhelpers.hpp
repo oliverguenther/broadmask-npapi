@@ -64,6 +64,7 @@ void element_to_stream(element_t el, std::ostream& is);
 
 void ciphertext_from_stream(bes_ciphertext_t *ct, bes_global_params_t gbs, std::istream& is);
 void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, std::ostream& os);
+size_t encryption_header_to_bytes(unsigned char** buf, element_t* HDR, int size);
 
 void sk_ciphertext_from_stream(sk_ciphertext_t *skt_ct, std::istream& is);
 void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, std::ostream& os);

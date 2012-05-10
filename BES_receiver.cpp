@@ -12,6 +12,8 @@ using CryptoPP::AutoSeededRandomPool;
 using CryptoPP::Exception;
 using CryptoPP::BufferedTransformation;
 using CryptoPP::AuthenticatedSymmetricCipher;
+using CryptoPP::DEFAULT_CHANNEL;
+using CryptoPP::AAD_CHANNEL;
 
 #include <cryptopp/filters.h>
 using CryptoPP::Redirector;
@@ -19,6 +21,7 @@ using CryptoPP::StringSink;
 using CryptoPP::StringSource;
 using CryptoPP::AuthenticatedEncryptionFilter;
 using CryptoPP::AuthenticatedDecryptionFilter;
+
 
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
@@ -36,7 +39,7 @@ using CryptoPP::SHA256;
 #include "utils.h"
 
 #define AES_IV_LENGTH 12
-#define TAG_SIZE 12
+#define TAG_SIZE 16
 #define AES_DEFAULT_KEYSIZE 32
 
 namespace fs = boost::filesystem;
@@ -120,37 +123,63 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     derivate_decryption_key(derived_key, raw_key);
     
     FB::VariantMap result;
-    
+
 	try {
         string r_plaintext;
         GCM< AES >::Decryption d;
 		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES_IV_LENGTH);
         
-        string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
-        AuthenticatedDecryptionFilter df( d,
-                                         new StringSink( r_plaintext ),
-                                         AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
-                                         ); // AuthenticatedDecryptionFilter
+        /** Determine MAC offset */
+        size_t mac_offset = cts->ct_length - TAG_SIZE;
         
-        StringSource( cipher, true,
-                     new Redirector( df /*, PASS_EVERYTHING */ )
-                     ); // StringSource
+        // Setup AE Decryption filter
+        AuthenticatedDecryptionFilter df( d, NULL,
+                                         AuthenticatedDecryptionFilter::MAC_AT_BEGIN |
+                                         AuthenticatedDecryptionFilter::THROW_EXCEPTION, TAG_SIZE );
+        
+        // Push down MAC data first
+        df.ChannelPut( DEFAULT_CHANNEL, (const unsigned char*) cts->ct + mac_offset, TAG_SIZE );
+        
+        // Get HDR data for authentication
+        unsigned char *buf;
+        size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+        // Push down HDR as Additional Authenticated Data (AAD) for authentication
+        df.ChannelPut( AAD_CHANNEL, (const unsigned char*) buf , hdr_size); 
+        free(buf);
+        
+        // Push down Ciphertext
+        df.ChannelPut( DEFAULT_CHANNEL, (const unsigned char*) cts->ct, cts->ct_length - TAG_SIZE);
+        
+        // END AAD and Regular Channel
+        df.ChannelMessageEnd( AAD_CHANNEL );
+        df.ChannelMessageEnd( DEFAULT_CHANNEL );
         
         // If the object does not throw, here's the only
         //  opportunity to check the data's integrity
         if( true == df.GetLastResult() ) {
-            result["plaintext"] = r_plaintext;
-            return result;
+            
+            // Retrieve plaintext
+            df.SetRetrievalChannel( DEFAULT_CHANNEL );
+            size_t n = (size_t)df.MaxRetrievable();
+            if( n > 0 ) { 
+                unsigned char recovered[n];
+                df.Get(recovered, n); 
+                std::string r_plaintext (reinterpret_cast<char*>(recovered), n);
+                result["plaintext"] = r_plaintext;
+                result["success"] = true;
+                return result;
+            }
         }
+        
+        result["error"] = true;
+        result["error_msg"] = "Invalid ciphertext. Authentication Failed";
+        return result;
         
 	} catch(const CryptoPP::Exception& e) {
         result["error"] = true;
         result["error_msg"] = e.what();
-	}
-    
-    result["error"] = true;
-    result["error_msg"] = "Invalid ciphertext";
-    return result;
+        return result;
+	} 
     
 }
 

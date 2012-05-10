@@ -58,6 +58,21 @@ void ciphertext_from_stream(bes_ciphertext_t* ct, bes_global_params_t gbs, istre
 
 }
 
+size_t encryption_header_to_bytes(unsigned char** buf, element_t* HDR, int size) {
+    
+    std::ostringstream os;
+    for (int i = 0; i < size; ++i) {
+        element_to_stream(HDR[i], os);
+    }
+    
+    size_t buf_size = os.str().size();
+    unsigned char* result = (unsigned char*) malloc(buf_size * sizeof(unsigned char));
+    memcpy(result, reinterpret_cast<const unsigned char*>(os.str().data()), buf_size);
+    
+    *buf = result;    
+    return buf_size;
+}
+
 void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, ostream& os) {
     int version = 0;
     int element_size = element_length_in_bytes(ct->HDR[0]);

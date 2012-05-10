@@ -33,13 +33,15 @@ using CryptoPP::GCM_TablesOption;
 using CryptoPP::Exception;
 using CryptoPP::BufferedTransformation;
 using CryptoPP::AuthenticatedSymmetricCipher;
+using CryptoPP::DEFAULT_CHANNEL;
+using CryptoPP::AAD_CHANNEL;
 
 #include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
 
 #define AES_IV_LENGTH 12
-#define TAG_SIZE 12
+#define TAG_SIZE 16
 #define AES_DEFAULT_KEYSIZE 32
 #define SENDER_MEMBER_ID "myself"
 
@@ -149,7 +151,7 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 }
     
 
-void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& data) {
+void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& pdata) {
     
     bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
     
@@ -197,23 +199,42 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
     AutoSeededRandomPool prng;
 	prng.GenerateBlock(ct->iv, AES_IV_LENGTH);
 
+    unsigned char *buf;
+    
     try {
 		GCM< AES >::Encryption e;
 		e.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES_IV_LENGTH);
         string cipher;
-        StringSource(data, true,
-                     new AuthenticatedEncryptionFilter( e,
-                                                       new StringSink( cipher ), false, TAG_SIZE
-                                                       )
-                     );
+        
+        // Setup AE Filter into cipher
+        AuthenticatedEncryptionFilter ef( e,
+                                         new StringSink( cipher ), false, TAG_SIZE
+                                         ); // AuthenticatedEncryptionFilter
+        
+        // Push HDR down into Additional Authenticated Data (AAD) channel
+        
+        size_t hdr_size = encryption_header_to_bytes(&buf, ct->HDR, gbs->A + 1);
+        ef.ChannelPut(AAD_CHANNEL, (const unsigned char*) buf, hdr_size);
+        ef.ChannelMessageEnd(AAD_CHANNEL);
+        free(buf);
+        
+        // Push data down into Authenticated Encryption (AE) Channel
+        ef.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*)pdata.data(), pdata.size() );
+        ef.ChannelMessageEnd(DEFAULT_CHANNEL);
                 
         ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
         ct->ct_length = cipher.size();
         memcpy(ct->ct, cipher.c_str(), ct->ct_length);  
-        *cts = ct;        
+        *cts = ct;     
         
 	} catch(const CryptoPP::Exception& e) {
-		cerr << "HKDF enc error" << e.what() << endl;
+		cerr << "AES-GCM Encryption error (" << e.GetErrorType() << "):" << e.what() << endl;
+        // Free manually, as ct probably not allocated yet
+        free(ct->iv);
+        free(ct->HDR);
+        free(ct->receivers);
+        free(ct);
+        free(buf);
         ct = NULL;
 	}
     
@@ -231,36 +252,62 @@ FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
     FB::VariantMap result;
     
 	try {
-        string r_plaintext;
         GCM< AES >::Decryption d;
 		d.SetKeyWithIV(derived_key, AES_DEFAULT_KEYSIZE, cts->iv, AES_IV_LENGTH);
         
-        string cipher(reinterpret_cast<char const*>(cts->ct), cts->ct_length);        
-        AuthenticatedDecryptionFilter df( d,
-                                         new StringSink( r_plaintext ),
-                                         AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
-                                         ); // AuthenticatedDecryptionFilter
+        /** Determine MAC offset */
+        size_t mac_offset = cts->ct_length - TAG_SIZE;
         
-        StringSource( cipher, true,
-                     new Redirector( df /*, PASS_EVERYTHING */ )
-                     ); // StringSource
+        // Setup AE Decryption filter
+        AuthenticatedDecryptionFilter df( d, NULL,
+                                         AuthenticatedDecryptionFilter::MAC_AT_BEGIN |
+                                         AuthenticatedDecryptionFilter::THROW_EXCEPTION, TAG_SIZE );
+        
+        // Push down MAC data first
+        df.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*) cts->ct + mac_offset, TAG_SIZE );
+        
+        // Get HDR data for authentication
+        unsigned char *buf;
+        size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+        
+        // Put down Additional Authenticated Data (AAD) for decryption
+        df.ChannelPut(AAD_CHANNEL, (const unsigned char*) buf, hdr_size); 
+        
+        free(buf);
+        
+        // Put down Ciphertext
+        df.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*) cts->ct, cts->ct_length - TAG_SIZE);
+        
+        // END AAD and Regular Channel
+        df.ChannelMessageEnd(AAD_CHANNEL);
+        df.ChannelMessageEnd(DEFAULT_CHANNEL);
         
         // If the object does not throw, here's the only
         //  opportunity to check the data's integrity
         if( true == df.GetLastResult() ) {
-            result["plaintext"] = r_plaintext;
-            return result;
+            
+            // Retrieve plaintext
+            df.SetRetrievalChannel(DEFAULT_CHANNEL);
+            size_t n = (size_t) df.MaxRetrievable();
+            if( n > 0 ) {
+                unsigned char recovered[n];
+                df.Get(recovered, n); 
+                std::string r_plaintext (reinterpret_cast<char*>(recovered), n);
+                result["plaintext"] = r_plaintext;
+                result["success"] = true;
+                return result;
+            }
         }
+        
+        result["error"] = true;
+        result["error_msg"] = "Invalid ciphertext. Authentication Failed";
+        return result;
         
 	} catch(const CryptoPP::Exception& e) {
         result["error"] = true;
         result["error_msg"] = e.what();
-	}
-    
-    result["error"] = true;
-    result["error_msg"] = "Invalid ciphertext";
-    return result;
-    
+        return result;
+	}    
 }
 
 
