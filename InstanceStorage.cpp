@@ -247,13 +247,14 @@ std::string InstanceStorage::start_sender_instance(string id, string name, int N
 }
 
 void InstanceStorage::start_receiver_instance(string id, string name, int N, string pubdata_b64, string private_key_b64) {
-    BES_receiver* instance = load_instance<BES_receiver>(id);
     
-    // check for cached instance
-    if (instance) {
+    
+    
+    int stored_type = instance_type(id);
+    
+    if (stored_type == BROADMASK_INSTANCE_BES_SENDER || stored_type == BROADMASK_INSTANCE_BES_RECEIVER)
         return;
-    }
-    
+
     // record instance
     InstanceDescriptor *desc = new InstanceDescriptor(id, name, BROADMASK_INSTANCE_BES_RECEIVER, N);
     instances.insert(id, desc);
@@ -263,7 +264,7 @@ void InstanceStorage::start_receiver_instance(string id, string name, int N, str
     string private_key = base64_decode(private_key_b64);
     
     // Create and store instance
-    instance = new BES_receiver(id, N, public_params, private_key);    
+    BES_receiver *instance = new BES_receiver(id, N, public_params, private_key);    
     loaded_instances.insert(id, instance);    
     store_instance<BES_receiver>(instance);
     InstanceStorage::archive(this);
@@ -318,6 +319,7 @@ FB::VariantMap InstanceStorage::instance_description(std::string id) {
         result["name"] = inst->name;
         result["type"] = inst->type;
         result["path"] = inst->path;
+        result["max_users"] = inst->max_users;
     } else {
         result["error"] = true;
         result["error_msg"] = "Instance not found";
