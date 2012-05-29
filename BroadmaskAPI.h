@@ -213,6 +213,16 @@ public:
      * @return FB::VariantMap
      */
     FB::VariantMap gpg_import_key(std::string data, bool iskeyblock);
+
+    /**
+     * @fn BroadmaskAPI::gpg_search_keys
+     * @brief Retrieve keys from the keychain, matching filter (or empty for all keys)
+     * @param filter A string to search for in keylist
+     * @param private_keys set to 1 if searching private keys
+     * @return FB::VariantMap
+     */
+    FB::VariantMap gpg_search_keys(std::string filter, int private_keys);
+
     
     /**
      * @fn BroadmaskAPI::get_stored_instances

@@ -92,7 +92,7 @@ public:
      * @brief Retrieves the key that matches pattern and imports the key to the GPG keychain
      * @return JS object with op results
      */    
-    FB::VariantMap search_key(std::string& key);
+    FB::VariantMap search_key(std::string key, int secret_keys_only);
 
     static void archive(UserStorage *storage);
     static UserStorage* unarchive();

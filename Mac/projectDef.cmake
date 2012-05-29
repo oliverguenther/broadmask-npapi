@@ -46,8 +46,53 @@ target_link_libraries(${PROJECT_NAME}
     -I/usr/include/
     -I/usr/local/include/
     -lgmp
-	-lb64
     -lpbc
 	-lcryptopp
 	-lgpgme
     )
+
+#Copy the specified lib to the plugin directory.
+function(copyLibToFrameworks libPath pathToPlugin)
+    ADD_CUSTOM_COMMAND(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND mkdir -p ${pathToPlugin}/Contents/Frameworks
+    )
+    ADD_CUSTOM_COMMAND(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND cp ${libPath} ${pathToPlugin}/Contents/Frameworks
+    )
+endfunction()
+ 
+#Update the reference to the lib from the plugin.
+function(updateReferencesToLib fromPath toPath targetLib)
+    ADD_CUSTOM_COMMAND(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND install_name_tool -change ${fromPath} ${toPath} ${targetLib}
+    )
+endfunction()
+ 
+#Update the reference inside the target lib.
+function(updateReferenceInLib toPath targetLib)
+    ADD_CUSTOM_COMMAND(
+        TARGET ${PROJECT_NAME}
+        POST_BUILD
+        COMMAND install_name_tool -id ${toPath} ${targetLib}
+    )
+endfunction()
+ 
+#Copy and update references for a library.
+function(changeLoaderPath pathInBinary libFolder libName pathToPlugin)
+    copyLibToFrameworks(${libFolder}/${libName} 
+        ${pathToPlugin}
+    )
+    updateReferenceInLib(@loader_path/../Frameworks/${libName} 
+        ${pathToPlugin}/Contents/Frameworks/${libName}
+    )
+    updateReferencesToLib(${pathInBinary} 
+        @loader_path/../Frameworks/${libName} 
+        ${pathToPlugin}/Contents/MacOS/${PROJECT_NAME}
+    )
+endfunction()

@@ -17,8 +17,6 @@
 #include <boost/static_assert.hpp>
 #include <boost/thread.hpp>
 
-
-
 #include "JSObject.h"
 #include "variant_list.h"
 #include "DOM/Document.h"
@@ -28,6 +26,8 @@
 #include "streamhelpers.hpp"
 
 #include "utils.h"
+#include <cstdint>
+
 
 #include <cryptopp/filters.h>
 using CryptoPP::StringSink;
@@ -506,7 +506,11 @@ FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock) {
     if (iskeyblock)
         return ustore->import_key_block(data);
     else
-        return ustore->search_key(data);
+        return ustore->search_key(data, 0);
+}
+
+FB::VariantMap BroadmaskAPI::gpg_search_keys(std::string filter, int private_keys) {
+    return ustore->search_key(filter, private_keys);
 }
 
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
@@ -569,6 +573,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));
     registerMethod("sk_decrypt_b64", make_method(this, &BroadmaskAPI::sk_decrypt_b64));
     registerMethod("gpg_store_keyid", make_method(this, &BroadmaskAPI::gpg_store_keyid));
+    registerMethod("gpg_search_keys", make_method(this, &BroadmaskAPI::gpg_search_keys));
     registerMethod("gpg_get_keyid", make_method(this, &BroadmaskAPI::gpg_get_keyid));
     registerMethod("gpg_encrypt_for", make_method(this, &BroadmaskAPI::gpg_encrypt_for));
     registerMethod("gpg_encrypt_with", make_method(this, &BroadmaskAPI::gpg_encrypt_with));
@@ -738,6 +743,7 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
     }
 
 }
+
 
 void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes) {
     

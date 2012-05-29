@@ -105,7 +105,7 @@ FB::VariantMap UserStorage::import_key_block(std::string& keydata) {
     
 }
 
-FB::VariantMap UserStorage::search_key(std::string& pattern) {
+FB::VariantMap UserStorage::search_key(std::string pattern, int secret_keys_only) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_key_t key;
@@ -115,18 +115,17 @@ FB::VariantMap UserStorage::search_key(std::string& pattern) {
         return gpgme_error(err);
     }
     
-    // Search external source
     err = gpgme_set_keylist_mode (ctx, (gpgme_get_keylist_mode (ctx)
-                                        | GPGME_KEYLIST_MODE_EXTERN));
+                                        | GPGME_KEYLIST_MODE_LOCAL));
     if (err) {
         return gpgme_error(err);
     }
     
     // Search for keyid, or return all keys if keyid is null
     if (pattern.size() > 0){
-        err = gpgme_op_keylist_start (ctx, pattern.c_str(), 0);
+        err = gpgme_op_keylist_start (ctx, pattern.c_str(), secret_keys_only);
     } else { // list all keys
-        err = gpgme_op_keylist_ext_start (ctx, NULL, 0, 0);
+        err = gpgme_op_keylist_ext_start (ctx, NULL, secret_keys_only, 0);
     }
     
     if (err) {
@@ -148,22 +147,22 @@ FB::VariantMap UserStorage::search_key(std::string& pattern) {
         if (key->uids && key->uids->email)
             key_result["email"] = key->uids->email;
         
-        key_result["expired"] = key->expired? true : false;
-        key_result["revoked"] = key->revoked? true : false;
-        key_result["disabled"] = key->disabled? true : false;
-        key_result["invalid"] = key->invalid? true : false;
-        key_result["secret"] = key->secret? true : false;
-        key_result["can_encrypt"] = key->can_encrypt? true : false;
-        key_result["can_sign"] = key->can_sign? true : false;
-        key_result["can_certify"] = key->can_certify? true : false;
-        key_result["can_authenticate"] = key->can_authenticate? true : false;
-        key_result["is_qualified"] = key->is_qualified? true : false;
-        key_result["owner_trust"] = key->owner_trust == GPGME_VALIDITY_UNKNOWN? "unknown":
-        key->owner_trust == GPGME_VALIDITY_UNDEFINED? "undefined":
-        key->owner_trust == GPGME_VALIDITY_NEVER? "never":
-        key->owner_trust == GPGME_VALIDITY_MARGINAL? "marginal":
-        key->owner_trust == GPGME_VALIDITY_FULL? "full":
-        key->owner_trust == GPGME_VALIDITY_ULTIMATE? "ultimate": "[?]";
+        key_result["expired"] = key->expired ? true : false;
+        key_result["revoked"] = key->revoked ? true : false;
+        key_result["disabled"] = key->disabled ? true : false;
+        key_result["invalid"] = key->invalid ? true : false;
+        key_result["secret"] = key->secret ? true : false;
+        key_result["can_encrypt"] = key->can_encrypt ? true : false;
+        key_result["can_sign"] = key->can_sign ? true : false;
+        key_result["can_certify"] = key->can_certify ? true : false;
+        key_result["can_authenticate"] = key->can_authenticate ? true : false;
+        key_result["is_qualified"] = key->is_qualified ? true : false;
+        key_result["owner_trust"] = key->owner_trust == GPGME_VALIDITY_UNKNOWN ? "unknown":
+        key->owner_trust == GPGME_VALIDITY_UNDEFINED ? "undefined":
+        key->owner_trust == GPGME_VALIDITY_NEVER ? "never":
+        key->owner_trust == GPGME_VALIDITY_MARGINAL ? "marginal":
+        key->owner_trust == GPGME_VALIDITY_FULL ? "full":
+        key->owner_trust == GPGME_VALIDITY_ULTIMATE ? "ultimate": "[?]";
         
         op_result[key->subkeys->keyid] = key_result;
         num_keys++;
