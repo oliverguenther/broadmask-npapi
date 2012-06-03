@@ -26,7 +26,6 @@
 #include "streamhelpers.hpp"
 
 #include "utils.h"
-#include <cstdint>
 
 
 #include <cryptopp/filters.h>

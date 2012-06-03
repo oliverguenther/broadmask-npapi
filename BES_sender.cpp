@@ -290,11 +290,12 @@ FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
             df.SetRetrievalChannel(DEFAULT_CHANNEL);
             size_t n = (size_t) df.MaxRetrievable();
             if( n > 0 ) {
-                unsigned char recovered[n];
+                unsigned char *recovered = new unsigned char[n];
                 df.Get(recovered, n); 
                 std::string r_plaintext (reinterpret_cast<char*>(recovered), n);
                 result["plaintext"] = r_plaintext;
                 result["success"] = true;
+                delete[] recovered;
                 return result;
             }
         }
