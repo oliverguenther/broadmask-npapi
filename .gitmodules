@@ -1,3 +1,6 @@
-[submodule "PBC_bes"]
-	path = PBC_bes
+[submodule "src/PBC_bes"]
+	path = src/PBC_bes
 	url = https://github.com/oliverguenther/PBC_bes
+[submodule "firebreath"]
+	path = firebreath
+	url = git://github.com/firebreath/FireBreath.git
