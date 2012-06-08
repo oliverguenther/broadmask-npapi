@@ -27,10 +27,12 @@ set (SOURCES
     )
 
 include_directories( 
+		"/usr/local/Broadmask/include"
         "/usr/local/include"
 ) 
 
 link_directories(
+		"/usr/local/Broadmask/lib"
 		"/usr/local/lib"
 )
 

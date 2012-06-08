@@ -615,20 +615,21 @@ void BroadmaskAPI::run_benchmark(std::string target_folder, int max_receivers, i
 
 void BroadmaskAPI::test(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback) {
     
-    int sizes[6] = {10, 100, 1000, 5000, 10000, 50000};
-    for (int i = 0; i < 6; ++i) {
+//    int sizes[6] = {10, 100, 1000, 5000, 10000, 50000};
+    int sizes[2] = {10, 50000};    
+    for (int i = 0; i < 2; ++i) {
         run_bes_benchmark(target_folder, max_receivers, sizes[i], false, passes);
-        cout << "completed BES benchmark, 256 receivers, Plaintext sized: " << sizes[i] << endl;
-        callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
-        run_bes_benchmark(target_folder, max_receivers, sizes[i], true, passes);
-        cout << "completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;        
-        callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
-        run_sk_benchmark(target_folder, max_receivers, sizes[i], false, passes);
-        cout << "completed SK benchmark, 256 receivers, Plaintext sized: " << sizes[i] << endl;
-        callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
-        run_sk_benchmark(target_folder, max_receivers, sizes[i], true, passes);
-        cout << "completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;
-        callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
+        cout << "==== completed BES benchmark, 256 receivers, Plaintext sized: " << sizes[i] << "====" << endl;
+//        callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
+//        run_bes_benchmark(target_folder, max_receivers, sizes[i], true, passes);
+//        cout << "completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;        
+//        callback->InvokeAsync("", FB::variant_list_of("completed BES benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
+//        run_sk_benchmark(target_folder, max_receivers, sizes[i], false, passes);
+//        cout << "completed SK benchmark, 256 receivers, Plaintext sized: " << sizes[i] << endl;
+//        callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, Plaintext sized: " + sizes[i]));
+//        run_sk_benchmark(target_folder, max_receivers, sizes[i], true, passes);
+//        cout << "completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " << sizes[i] << endl;
+//        callback->InvokeAsync("", FB::variant_list_of("completed SK benchmark, 256 receivers, BMP wrapped Plaintext sized: " + sizes[i]));
     }
     callback->InvokeAsync("", FB::variant_list_of());
 }
@@ -827,9 +828,11 @@ void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, i
             double dec_pass_avg = 0;
             for (std::vector<double>::iterator it = e[i].dec_times.begin(); 
                  it != e[i].dec_times.end(); ++it) {
+                cout << "DEC time " << *it << endl;        
                 dec_pass_avg += *it;
             }
             dec_avg += (dec_pass_avg / e[i].dec_times.size());
+            cout << "TOTAL pass " << i+1 << " is " << dec_avg << endl;
             
             ct_size_avg +=e[i].ciphertext_size;
 
@@ -912,9 +915,9 @@ bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instanc
     
     // test sender decryption
     timer.restart();
-    cout << "-> sender decryption " << endl;
     FB::VariantMap dec_result = bes_decrypt_b64(sender_instance, ct_data, asImage);
     times.dec_times.push_back(timer.elapsed());
+    cout << "-> sender decryption " << timer.elapsed() << endl;
     // Should be able to decrpyt
     try {
         std::string rec_message = dec_result["plaintext"].convert_cast<std::string>();
