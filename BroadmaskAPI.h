@@ -239,7 +239,8 @@ public:
     bes_setup_times run_bes_setup(std::string sender_instance, int N, std::vector<std::string>& decrypt_instances, bool remove_after);
     
     void run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes);
-
+    
+    std::string BroadmaskAPI::unlock_profile();
 
     
     

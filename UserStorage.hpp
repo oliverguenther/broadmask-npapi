@@ -23,33 +23,6 @@ public:
     ~UserStorage();
     
     /**
-     * @fn UserStorage::encrypt_for
-     * @brief Tries to encrypt data with PGP key corresponding to user id
-     * @param data Data to encrypt
-     * @param user_id user id
-     * @return JS object with op results
-     */
-    FB::VariantMap encrypt_for(std::string& data, std::string& user_id);
-    
-    /**
-     * @fn UserStorage::encrypt_with
-     * @brief Tries to encrypt data with PGP key key_id
-     * @param data Data to encrypt
-     * @param key_id key identifier or fingerprint
-     * @return JS object with op results
-     */
-    FB::VariantMap encrypt_with(std::string& data, std::string& key_id);
-    
-    /**
-     * @fn UserStorage::decrypt
-     * @brief Tries to decrypt payload with a key from keyring
-     * @param data Data to decrypt
-     * @return JS object with op results
-     */
-    FB::VariantMap decrypt(std::string& data);
-    
-    
-    /**
      * @fn UserStorage::setPGPKey
      * @brief Adds a PGP public key id for user id
      * @param user_id the user id the keyid belongs to
@@ -67,6 +40,15 @@ public:
     FB::VariantMap getPGPKey(std::string& user_id);
     
     /**
+     * @fn UserStorage::encrypt_for
+     * @brief Tries to encrypt data with PGP key corresponding to user id
+     * @param data Data to encrypt
+     * @param user_id user id
+     * @return JS object with op results
+     */
+    FB::VariantMap encrypt_for(std::string& data, std::string& user_id);
+    
+    /**
      * @fn UserStorage::removePGPKey
      * @brief Removes the mapping for user user_id
      * @param user_id the user id to delete the mapping for
@@ -80,20 +62,6 @@ public:
      */    
     FB::VariantMap associatedKeys();
 
-    /**
-     * @fn UserStorage::import_key_block
-     * @brief Import the keyblock to gpg keychain
-     * @return JS object with op results
-     */    
-    FB::VariantMap import_key_block(std::string& keydata);
-    
-    /**
-     * @fn UserStorage::fetch_key_id
-     * @brief Retrieves the key that matches pattern and imports the key to the GPG keychain
-     * @return JS object with op results
-     */    
-    FB::VariantMap search_key(std::string key, int secret_keys_only);
-
     static void archive(UserStorage *storage);
     static UserStorage* unarchive();
     
@@ -102,21 +70,7 @@ private:
     // Storage for known user ids <-> gpg keys
     std::map<std::string, std::string> keymap;
     std::string version;
-    
-    
-    // GPGME helpers
-    
-    // Create new context
-    gpgme_ctx_t create_gpg_context();
-    std::string get_validity_str (gpgme_validity_t& v);
-    std::string get_status_str (gpgme_error_t& e);
-
-
-    
-    
-    // GPGME error helpers
-    FB::VariantMap gpgme_error (gpgme_error_t& err);
-    
+        
     //
     // Boost class serialization, independent from BES serialization
     //

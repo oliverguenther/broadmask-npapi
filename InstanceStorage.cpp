@@ -376,3 +376,27 @@ InstanceStorage* InstanceStorage::unarchive() {
     }
     return is;
 }
+
+
+InstanceStorage* InstanceStorage::load(istream& is) {
+    InstanceStorage *istore = new InstanceStorage();
+    try {
+        boost::archive::text_iarchive ia(is);
+        ia >> *istore;
+        return istore;
+    } catch (exception& e) {
+        cout << e.what() << endl;
+        delete istore;
+    }
+return istore;
+}
+
+
+void InstanceStorage::store(InstanceStorage* istore, ostream& os) {  
+    try {
+        boost::archive::text_oarchive oa(os);
+        oa << *istore;
+    } catch (exception& e) {
+        cout << e.what() << endl;
+    }    
+}

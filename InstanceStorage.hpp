@@ -169,6 +169,11 @@ public:
     
     static void archive(InstanceStorage *storage);
     static InstanceStorage* unarchive();
+    
+    // New stream storage accessors
+    static InstanceStorage* load(istream& is);
+    static void store(InstanceStorage* istore, ostream& os);
+
  
     
 private:

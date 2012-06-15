@@ -20,12 +20,16 @@
 #include "JSObject.h"
 #include "variant_list.h"
 #include "DOM/Document.h"
+#include "DOM/Window.h"
 #include "global/config.h"
 #include "BroadmaskAPI.h"
 #include "BitmapWrapper.h"
 #include "streamhelpers.hpp"
+#include "ProfileManager.hpp"
+
 
 #include "utils.h"
+#include "gnupg_wrapper.hpp"
 
 
 #include <cryptopp/filters.h>
@@ -490,11 +494,11 @@ FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
-    return ustore->encrypt_with(data, key_id);
+    return gpgme_encrypt_with(data, key_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
-    return ustore->decrypt(data);
+    return gpgme_decrypt(data);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
@@ -503,13 +507,13 @@ FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
 
 FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock) {
     if (iskeyblock)
-        return ustore->import_key_block(data);
+        return gpgme_import_key_block(data);
     else
-        return ustore->search_key(data, 0);
+        return gpgme_search_key(data, 0);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_search_keys(std::string filter, int private_keys) {
-    return ustore->search_key(filter, private_keys);
+    return gpgme_search_key(filter, private_keys);
 }
 
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
@@ -525,7 +529,23 @@ FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysi
     return result;
 }
 
-
+std::string BroadmaskAPI::unlock_profile() {
+    ProfileManager* p = new ProfileManager();
+    p->add_profile("oliver", "A3A8BDAD7C0C552C");
+    InstanceStorage *is = p->unlock_profile("oliver");
+    
+    if (!is) {
+        cout << "Did not unlock!" << endl;
+    } else {
+        cout << "Did unload!" << endl;
+    }
+    
+    p->store_profile("oliver", is);
+    delete p;
+    
+    cout << "success" << endl;
+    return "";
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 BroadmaskPtr BroadmaskAPI::getPlugin()
@@ -581,6 +601,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
     registerMethod("run_benchmark", make_method(this, &BroadmaskAPI::run_benchmark));
+    registerMethod("unlock_profile", make_method(this, &BroadmaskAPI::unlock_profile));
     
 
     // (Re-)start User Storage
