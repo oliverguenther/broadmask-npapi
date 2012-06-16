@@ -67,14 +67,6 @@ SK_Instance::~SK_Instance() {
     members.clear();
 }
 
-int SK_Instance::store() { 
-    return -1; 
-}
-
-int SK_Instance::restore() { 
-    return -1; 
-}
-
 std::vector<unsigned char> SK_Instance::get_symmetric_key() {
     return key;
 }

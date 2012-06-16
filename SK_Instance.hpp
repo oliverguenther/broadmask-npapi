@@ -27,6 +27,8 @@ public:
     SK_Instance(std::string groupid, std::string key_b64);
     
     ~SK_Instance();
+    
+    instance_types type() { return BROADMASK_INSTANCE_SK; }
 
     FB::VariantMap encrypt(std::string plaintext);
     FB::VariantMap decrypt(sk_ciphertext_t sk_ct);
@@ -35,10 +37,10 @@ public:
     std::vector<unsigned char> get_symmetric_key();
     
     /** 
-     * storage functions currently not needed
+     * No internal state needed
      */
-    int store();
-    int restore();
+    void store() {}
+    void restore() {}
     
     std::string instance_file();
     

@@ -17,19 +17,30 @@
 #include <boost/static_assert.hpp>
 #include <boost/thread.hpp>
 
+// FB JSAPI
 #include "JSObject.h"
 #include "variant_list.h"
 #include "DOM/Document.h"
 #include "DOM/Window.h"
 #include "global/config.h"
+
+
 #include "BroadmaskAPI.h"
-#include "BitmapWrapper.h"
-#include "streamhelpers.hpp"
+
+// Profiles
 #include "ProfileManager.hpp"
+#include "Profile.hpp"
+
+// Instances
+#include "Instance.hpp"
+#include "BES_sender.hpp"
+#include "BES_receiver.hpp"
 
 
 #include "utils.h"
 #include "gnupg_wrapper.hpp"
+#include "BitmapWrapper.h"
+#include "streamhelpers.hpp"
 
 
 #include <cryptopp/filters.h>
@@ -52,99 +63,98 @@ using CryptoPP::AutoSeededRandomPool;
 using namespace std;
 namespace fs = boost::filesystem;
 
+#define M_INIT_AND_UNLOCK_PROFILE \
+Profile *p = pm->unlock_profile(m_host->getDOMWindow(), active_profile); \
+FB::VariantMap result; \
+if (!p) { \
+    result["error"] = true; \
+    result["error_msg"] = "Could not unlock profile"; \
+    return result; \
+} \
 
-std::string BroadmaskAPI::create_sender_instance(std::string gid, std::string name, int N) {
-    return istore->start_sender_instance(gid, name, N);
+
+///////////////////////////////////////////////////////////////////////////////
+/// Instance Management 
+
+FB::VariantMap BroadmaskAPI::create_sender_instance(std::string gid, std::string name, int N) {
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    result["result"] = p->start_sender_instance(gid, name, N);
+    result["error"] = false;    
+    return result;
 }
 
-void BroadmaskAPI::create_receiver_instance(std::string gid, std::string name, int N, std::string pubdata_b64, std::string private_key_b64) {
-    istore->start_receiver_instance(gid, name, N, pubdata_b64, private_key_b64);
+FB::VariantMap BroadmaskAPI::create_receiver_instance(std::string gid, std::string name, int N, std::string pubdata_b64, std::string private_key_b64) {
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    p->start_receiver_instance(gid, name, N, pubdata_b64, private_key_b64);
+    result["error"] = false;
+    return result;
 }
 
-void BroadmaskAPI::create_shared_instance(std::string gid, std::string name) {
-    istore->start_shared_instance(gid, name);
+FB::VariantMap BroadmaskAPI::create_shared_instance(std::string gid, std::string name) {
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    
+    p->start_shared_instance(gid, name);
+    result["error"] = false;
+    return result;
 }
 
-void BroadmaskAPI::create_shared_instance_withkey(std::string gid, std::string name, std::string key_b64) {
-    istore->start_shared_instance_withkey(gid, name, key_b64);
+FB::VariantMap BroadmaskAPI::create_shared_instance_withkey(std::string gid, std::string name, std::string key_b64) {
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    p->start_shared_instance_withkey(gid, name, key_b64);
+    result["error"] = false;
+    return result;
 }
-
-
 
 FB::VariantMap BroadmaskAPI::get_instance_descriptor(std::string id) {
-    return istore->instance_description(id);
+
+    M_INIT_AND_UNLOCK_PROFILE
+    return p->instance_description(id);
 }
 
-void BroadmaskAPI::remove_instance(std::string id) {
-    istore->remove_instance(id);
+FB::VariantMap BroadmaskAPI::remove_instance(std::string id) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+    p->remove_instance(id);
+    result["error"] = false;
+    return result;
 }
 
-std::string BroadmaskAPI::get_symmetric_key(std::string gid) {
-    SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
-    
-    if (!ski) {
-        cout << "Sender instance " << gid << " not found" << endl;
-        return "";   
-    }
-    
-    std::vector<unsigned char> key = ski->get_symmetric_key();
-    return base64_encode(key);
-
+FB::VariantMap BroadmaskAPI::get_stored_instances() {
+    M_INIT_AND_UNLOCK_PROFILE
+    return p->get_stored_instances();
 }
 
-std::string BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
-    BES_sender *bci = istore->load_instance<BES_sender>(gid);
+///////////////////////////////////////////////////////////////////////////////
+/// Instance Member API
 
-    if (!bci) {
-        cout << "Sender instance " << gid << " not found" << endl;
-        return "";
-    }
-            
-    bes_privkey_t sk = NULL;
-    bci->get_private_key(&sk, id);
-    if (!sk) {
-        return "";
-    }
+FB::VariantMap BroadmaskAPI::add_member(std::string gid, std::string id) {
     
-    std::stringstream oss;
-    private_key_to_stream(sk, oss);
-    free_bes_privkey(sk);
-    return base64_encode(oss.str());
+    M_INIT_AND_UNLOCK_PROFILE    
     
-}
-
-int BroadmaskAPI::add_member(std::string gid, std::string id) {
-    int type = istore->instance_type(gid);
+    Instance *instance = p->load_unknown(gid);
     
-    Instance *instance = NULL;
-    switch (type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
-            instance = istore->load_instance<BES_sender>(gid);
-            break;
-        case BROADMASK_INSTANCE_BES_RECEIVER:
-            instance = istore->load_instance<BES_receiver>(gid);
-            break;
-        case BROADMASK_INSTANCE_SK:
-            instance = istore->load_instance<SK_Instance>(gid);
-            break;
-        default:
-            break;
-    }
-        
     if (!instance) {
-        return -1;
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        return result;
     }
     
     int sys_id = instance->add_member(id);
-    instance->store();
-    return sys_id;
+    
+    result["result"] = sys_id;
+    return result;
     
 }
 
 FB::VariantMap BroadmaskAPI::add_members(std::string gid, std::vector<std::string> idvector) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
 
-    Instance *instance = istore->load_unknown(gid);    
-    FB::VariantMap result;
+    Instance *instance = p->load_unknown(gid);    
     
     if (!instance) {
         result["error"] = true;
@@ -161,31 +171,67 @@ FB::VariantMap BroadmaskAPI::add_members(std::string gid, std::vector<std::strin
         
     }
     
-    istore->store_unknown(gid, instance);
+    instance->store();
     return result;
 }
 
-void BroadmaskAPI::remove_member(std::string gid, std::string id) {
-    BES_sender *bci = istore->load_instance<BES_sender>(gid);
-    if (bci) {
-        bci->remove_member(id);
-        bci->store();
-    }
-}
-
-FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
-    int type = istore->instance_type(gid);
+FB::VariantMap BroadmaskAPI::remove_member(std::string gid, std::string id) {
     
-    FB::VariantMap result;
+    M_INIT_AND_UNLOCK_PROFILE
     
-    if (type != BROADMASK_INSTANCE_BES_SENDER) {
+    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    if (!bci) {
         result["error"] = true;
-        result["error_msg"] = "Invalid Instance type";
-        result["instance_type"] = type;
+        result["error_msg"] = "Instance not found";
         return result;
     }
     
-    BES_sender *sender = istore->load_instance<BES_sender>(gid);
+    bci->remove_member(id);
+    bci->store();
+    result["error"] = false;
+    return result;
+}
+
+FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+
+    Instance* instance = p->load_unknown(gid);
+    
+    if (!instance) {
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        return result;
+    }
+
+    std::map<std::string, int> members = instance->instance_members();
+    for (std::map<std::string, int>::iterator it = members.begin();
+         it != members.end(); ++it) {
+        result[it->first] = it->second;
+    }
+    
+    return result;
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// BES specifics
+
+FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    BES_sender *sender = p->load_instance<BES_sender>(gid);
+    if (!sender) {
+        result["error"] = true;
+        result["error_msg"] = "Instance not found";
+        
+        instance_types type = p->instance_type(gid);
+        if (type != ERR_NO_INSTANCE)
+            result["type"] = type;
+        
+        return result;
+    }
     
     stringstream ss;
     sender->public_params_to_stream(ss);
@@ -194,52 +240,74 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
     
 }
 
-FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
+///////////////////////////////////////////////////////////////////////////////
+/// SK specifics
+FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
     
-    int type = istore->instance_type(gid);
+    M_INIT_AND_UNLOCK_PROFILE
+    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
     
-    Instance *instance = NULL;
-    switch (type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
-            instance = istore->load_instance<BES_sender>(gid);
-            break;
-        case BROADMASK_INSTANCE_BES_RECEIVER:
-            instance = istore->load_instance<BES_receiver>(gid);
-            break;
-        case BROADMASK_INSTANCE_SK:
-            instance = istore->load_instance<SK_Instance>(gid);
-            break;
-        default:
-            break;
+    if (!ski) {
+        std::stringstream ss;
+        ss << "SK Instance " << gid << " not found. " << endl;
+        result["error"] = true;
+        result["error_msg"] = ss.str();
+        return result;
     }
     
-    FB::VariantMap result;
+    std::vector<unsigned char> key = ski->get_symmetric_key();
+    result["error"] = false;
+    result["result"] = base64_encode(key);    
+    return result;
+    
+}
 
-    if (!instance)
-        return result;     // No instance available
-
-    std::map<std::string, int> members = instance->instance_members();
-    for (std::map<std::string, int>::iterator it = members.begin();
-         it != members.end(); ++it) {
-        // Ignore my own key
-        if (it->first != "myself")
-            result[it->first] = it->second;
+///////////////////////////////////////////////////////////////////////////////
+/// Instance key retrieval
+FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    
+    if (!bci) {
+        std::stringstream ss;
+        ss << "BES Sender instance " << gid << " not found. " << endl;
+        result["error"] = true;
+        result["error_msg"] = ss.str();
     }
+    
+    bes_privkey_t sk = NULL;
+    bci->get_private_key(&sk, id);
+    if (!sk) {
+        std::stringstream ss;
+        ss << "Couldn't retrieve private key " << id << endl;
+        result["error"] = true;
+        result["error_msg"] = ss.str();
+    }
+    
+    std::stringstream oss;
+    private_key_to_stream(sk, oss);
+    free_bes_privkey(sk);
+    result["result"] = base64_encode(oss.str());
+    result["error"] = false;
     
     return result;
-
+    
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// Encryption/Decryption API
 
 FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool image) {
     
-    int type = istore->instance_type(gid);
+    M_INIT_AND_UNLOCK_PROFILE
     
-    FB::VariantMap result;
-    
+    instance_types type = p->instance_type(gid);
+
     switch (type) {
         case BROADMASK_INSTANCE_BES_SENDER:
         {
-            BES_sender *instance = istore->load_instance<BES_sender>(gid);
+            BES_sender *instance = p->load_instance<BES_sender>(gid);
             if (!instance) {
                 result["error"] = true;
                 result["error_msg"] = "Couldn't load sender instance";
@@ -279,9 +347,9 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
 
 FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool image) {
     
-    int type = istore->instance_type(gid);
+    M_INIT_AND_UNLOCK_PROFILE
     
-    FB::VariantMap result;
+    instance_types type = p->instance_type(gid);
     
     switch (type) {
         case BROADMASK_INSTANCE_BES_SENDER:
@@ -297,7 +365,7 @@ FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool
         default:
         {
             result["error"] = true;
-            result["error_msg"] = "Unknown instance";
+            result["error_msg"] = "Instance not found";
             break;
         }
     }
@@ -307,9 +375,11 @@ FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool
 }
 
 FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<std::string>& receivers, std::string data, bool image) {
-    BES_sender *bci = istore->load_instance<BES_sender>(gid);
     
-    FB::VariantMap result;
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    
     if (!bci) {
         result["error"] = true;
         result["error_msg"] = "Sender Instance not found";
@@ -341,7 +411,9 @@ FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<
 
 FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_data, bool image) {
     
-    int type = istore->instance_type(gid);
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    instance_types type = p->instance_type(gid);
     if (type != BROADMASK_INSTANCE_BES_SENDER && type != BROADMASK_INSTANCE_BES_RECEIVER) {
         FB::VariantMap result;
         result["error"] = true;
@@ -366,11 +438,10 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
     // Read params into struct
     bes_ciphertext_t ct;
     std::stringstream ctss(ct_str);
-    FB::VariantMap result;
     switch (type) {
         case BROADMASK_INSTANCE_BES_SENDER:
         {
-            BES_sender* bci = istore->load_instance<BES_sender>(gid);
+            BES_sender* bci = p->load_instance<BES_sender>(gid);
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             result = bci->bes_decrypt(ct);
             free_bes_ciphertext(ct, bci->gbs);
@@ -378,7 +449,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
         }
         case BROADMASK_INSTANCE_BES_RECEIVER:
         {
-            BES_receiver* bci = istore->load_instance<BES_receiver>(gid);
+            BES_receiver* bci = p->load_instance<BES_receiver>(gid);
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             result = bci->bes_decrypt(ct);
             free_bes_ciphertext(ct, bci->gbs);
@@ -396,9 +467,9 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
 }
 
 FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, bool image) {
-    SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
-
-    FB::VariantMap result;
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
 
     if (!ski) {
         cout << "Shared Instance " << gid << " not found ";
@@ -428,14 +499,13 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
 }
 
 FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64, bool image) {
-    SK_Instance *ski = istore->load_instance<SK_Instance>(gid);
     
-    FB::VariantMap result;
+    M_INIT_AND_UNLOCK_PROFILE
     
+    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
     if (!ski) {
-        cout << "Shared Instance " << gid << " not found ";
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        result["error_msg"] = "Shared Instance not found";
         return result;
     }
 
@@ -462,47 +532,74 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
  
 
 
-/*
- * Instance Management
- */
+///////////////////////////////////////////////////////////////////////////////
+/// GPGME wrappers for Profile GPG features
 
-FB::VariantMap BroadmaskAPI::get_stored_instances() {
-    return istore->get_stored_instances();
-}
+FB::VariantMap BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
 
-/*
- * GPG API
- */
-
-
-void BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
-    ustore->setPGPKey(user_id, key_id);
-    UserStorage::archive(ustore);
+    p->get_ustore()->setPGPKey(user_id, key_id);
+    result["error"] = false;
+    return result;
 }
 
 FB::VariantMap BroadmaskAPI::gpg_get_keyid(std::string user_id) {
-    return ustore->getPGPKey(user_id);
+    M_INIT_AND_UNLOCK_PROFILE
+    return p->get_ustore()->getPGPKey(user_id);
 }
 
-void BroadmaskAPI::gpg_remove_key(std::string user_id) {
-    ustore->removePGPKey(user_id);
-    UserStorage::archive(ustore);
+FB::VariantMap BroadmaskAPI::gpg_remove_key(std::string user_id) {
+    M_INIT_AND_UNLOCK_PROFILE
+    p->get_ustore()->removePGPKey(user_id);
+    result["error"] = false;
+    return result;
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
-    return ustore->encrypt_for(data, user_id);
+    M_INIT_AND_UNLOCK_PROFILE
+    return p->get_ustore()->encrypt_for(data, user_id);
 }
 
+FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
+    M_INIT_AND_UNLOCK_PROFILE
+    return p->get_ustore()->associatedKeys();
+}
+
+FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+    FB::VariantMap user_sk = get_member_sk(gid, sysid);
+    
+    if (user_sk.find("result") == user_sk.end()) {
+        return user_sk;
+    }
+    std::string sk_str;
+    try {
+        sk_str = user_sk["result"].convert_cast<std::string>();
+        if (sk_str.size() > 0) {
+            return gpg_encrypt_for(sk_str, sysid);
+        } else {
+            result["error"] = true;
+            result["error_msg"] = "No SK for userid";
+            return result;
+        }
+    } catch (std::exception& e) {
+        result["error"] = true;
+        result["error_msg"] = e.what();
+        return result;
+    }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// GPGME wrapper, for generic use
 FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
     return gpgme_encrypt_with(data, key_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
     return gpgme_decrypt(data);
-}
-
-FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
-    return ustore->associatedKeys();
 }
 
 FB::VariantMap BroadmaskAPI::gpg_import_key(std::string data, bool iskeyblock) {
@@ -516,36 +613,33 @@ FB::VariantMap BroadmaskAPI::gpg_search_keys(std::string filter, int private_key
     return gpgme_search_key(filter, private_keys);
 }
 
-FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
-    std::string user_sk = get_member_sk(gid, sysid);
-    
+
+///////////////////////////////////////////////////////////////////////////////
+/// Profile Management API
+
+void BroadmaskAPI::add_profile(std::string profilename, std::string key) {
+    pm->add_profile(profilename, key);
+    ProfileManager::archive(pm);
+}
+
+FB::VariantMap BroadmaskAPI::unlock_profile(std::string profilename) {
+
+    Profile *p = pm->unlock_profile(m_host->getDOMWindow(), profilename);
     FB::VariantMap result;
-    if (user_sk.size() > 0) {
-        result = gpg_encrypt_for(user_sk, sysid);
-    } else {
+    
+    if (!p) {
         result["error"] = true;
-        result["error_msg"] = "No SK for userid";
+        result["error_msg"] = "Could not unlock profile";
+        return result;
     }
+
+    // Cache active profile name
+    active_profile = profilename;
+    
+    result["error"] = false;
     return result;
 }
 
-std::string BroadmaskAPI::unlock_profile() {
-    ProfileManager* p = new ProfileManager();
-    p->add_profile("oliver", "A3A8BDAD7C0C552C");
-    InstanceStorage *is = p->unlock_profile("oliver");
-    
-    if (!is) {
-        cout << "Did not unlock!" << endl;
-    } else {
-        cout << "Did unload!" << endl;
-    }
-    
-    p->store_profile("oliver", is);
-    delete p;
-    
-    cout << "success" << endl;
-    return "";
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 BroadmaskPtr BroadmaskAPI::getPlugin()
@@ -601,14 +695,15 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
     registerMethod("run_benchmark", make_method(this, &BroadmaskAPI::run_benchmark));
+    registerMethod("add_profile", make_method(this, &BroadmaskAPI::add_profile));
     registerMethod("unlock_profile", make_method(this, &BroadmaskAPI::unlock_profile));
-    
 
-    // (Re-)start User Storage
-    ustore = UserStorage::unarchive();
+    // Register active profile property
+    registerProperty("active_profile",  make_property(this, &BroadmaskAPI::get_active_profile, &BroadmaskAPI::set_active_profile));
     
-    // (Re-)start Instance Storage
-    istore = InstanceStorage::unarchive();
+    // Restore ProfileManager
+    pm = ProfileManager::unarchive();
+
 }
 
 
@@ -686,7 +781,12 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
         for (int i = 0; i < passes; ++i) {
             cout << "[PASS " << i+1 << "/" << passes << "]" << endl;
             create_shared_instance("sk_benchmark_sender", "SK test sending instance");
-            std::string key = get_symmetric_key("sk_benchmark_sender");
+            FB::VariantMap rec_key = get_symmetric_key("sk_benchmark_sender");
+            if (rec_key.find("result") == rec_key.end()) {
+                cout << "Could not get symmetric key. Error was " << rec_key["error_msg"].convert_cast<std::string>() << endl;
+                return;
+            }
+            std::string key = rec_key["result"].convert_cast<std::string>();
             
             // encryption phase
             char *buffer = new char[(1000 * file_size) + 1];
@@ -717,15 +817,19 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
             
             // compute decrypt passes using first receiver
             create_shared_instance_withkey("sk_benchmark_receiver", "receiver sk test", key);
-            std::string rec_key = get_symmetric_key("sk_benchmark_sender");
+            rec_key = get_symmetric_key("sk_benchmark_sender");
+            if (rec_key.find("result") == rec_key.end()) {
+                cout << "Could not get symmetric key. Error was " << rec_key["error_msg"].convert_cast<std::string>() << endl;
+                return;
+            } 
                 
-            if (key.compare(rec_key) != 0) {
+            std::string key_str = rec_key["result"].convert_cast<std::string>();
+            if (key.compare(key_str) != 0) {
                 cout << "KEYS are not identical" << endl;
                 cout << "**** " << key << "****" << endl;
-                cout << "**** " << rec_key << "****" << endl;
+                cout << "**** " << key_str << "****" << endl;
                 return;
             }
-                
                 
             timer.restart();
             FB::VariantMap dec_result = sk_decrypt_b64("sk_benchmark_receiver", ct_data, as_image);
@@ -764,7 +868,6 @@ void BroadmaskAPI::run_sk_benchmark(std::string output_folder, int max_users, in
     }
 
 }
-
 
 void BroadmaskAPI::run_bes_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes) {
     
@@ -888,7 +991,12 @@ bes_setup_times BroadmaskAPI::run_bes_setup(std::string sender_instance, int N, 
     bes_setup_times times;
     
     boost::timer timer;
-    std::string public_params = create_sender_instance(sender_instance, "benchmark instance", N);
+    FB::VariantMap pp_result = create_sender_instance(sender_instance, "benchmark instance", N);
+    if (pp_result.find("result") == pp_result.end()) {
+        cout << "Could not start sender instance: " << pp_result["error_msg"].convert_cast<std::string>() << endl;
+        return times;
+    }
+    std::string public_params = pp_result["result"].convert_cast<std::string>();
     times.setup_time = timer.elapsed();
     times.public_key_size = public_params.size();
     cout << "-> Setup " << times.setup_time << endl;
@@ -897,7 +1005,12 @@ bes_setup_times BroadmaskAPI::run_bes_setup(std::string sender_instance, int N, 
         cout << *it << " ";
         add_member(sender_instance, *it);
         timer.restart();
-        std::string sk = get_member_sk(sender_instance, *it);
+        FB::VariantMap rec_key = get_member_sk(sender_instance, *it);
+        if (rec_key.find("result") == rec_key.end()) {
+            cout << "Could not get member secret key. Error was " << rec_key["error_msg"].convert_cast<std::string>() << endl;
+            return times;
+        }
+        std::string sk = rec_key["result"].convert_cast<std::string>();
         create_receiver_instance(*it, "benchmark receiver", N, public_params, sk);
         double rsetup_time = timer.elapsed();
         cout << "(" << rsetup_time << "s) ";

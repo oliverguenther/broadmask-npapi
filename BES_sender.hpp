@@ -31,6 +31,7 @@ public:
     
     ~BES_sender();
     
+    instance_types type() { return BROADMASK_INSTANCE_BES_SENDER; }
     
     /**
      * Encrypt using Broadcast system
@@ -85,15 +86,14 @@ public:
     
     
     /**
-     * Store BES state to its instance file
+     * Store BES state to internal string
      */
-    int store();
+    void store();
     
     /**
      * Restores saved BES state
-     * @return 0 if successful, 1 otherwise
      */
-    int restore();
+    void restore();
     
     /**
      * BES public global params
@@ -124,6 +124,12 @@ private:
      */
     std::deque<int> availableIDs;
     
+    /*
+     * Stores internal state (after BES_sender::store is called)
+     * and is serialized by Boost::Serialization
+     */
+    std::string stored_state;
+    
     /** 
      * Derivate a symmetric encryption key to be used within subset S
      * @param[out] key symmetric key of size keylen
@@ -145,6 +151,7 @@ private:
         ar & gid;
         ar & members;
         ar & availableIDs;
+        ar & stored_state;
     }
     
 };

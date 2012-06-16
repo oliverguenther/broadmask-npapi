@@ -10,6 +10,18 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
+/* The available instance types */
+typedef enum {
+    ERR_NO_INSTANCE = 0,
+    BROADMASK_INSTANCE_BES_SENDER = 1,
+    BROADMASK_INSTANCE_BES_RECEIVER = 2,
+    BROADMASK_INSTANCE_SK = 4 
+} instance_types;
+
+//#define BROADMASK_INSTANCE_BES_SENDER 1
+//#define BROADMASK_INSTANCE_BES_RECEIVER 2
+//#define BROADMASK_INSTANCE_SK 4
+
 class Instance {
     
 public:
@@ -24,22 +36,21 @@ public:
         return gid;
     }
     
-    /**
-     * @brief Store this instance to disk
-     */
-    virtual int store() = 0;
+    virtual instance_types type() = 0;
     
     /**
-     * @brief Restore this instance
+     * @brief Store Instance state, if necessary
+     * This is to be called before Boost serialization to reduce
+     * internal representations (i.e., PBC BE system, keys) into 
+     * a format that boost can handle
      */
-    virtual int restore() = 0;
+    virtual void store() = 0;
     
     /**
-     * @brief return the instance file path
+     * @brief Restore the instance state
      */
-    virtual std::string instance_file() = 0;
-    
-    
+    virtual void restore() = 0;
+      
     /**
      * @brief return instance members
      */
@@ -91,7 +102,7 @@ protected:
 
     std::string gid;
     std::map<std::string, int> members;
-
+    
     
 private:
     

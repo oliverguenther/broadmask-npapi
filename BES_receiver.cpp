@@ -184,49 +184,39 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     
 }
 
-int BES_receiver::restore() {
+void BES_receiver::restore() {
     
-    // Restore global parameters
-    setup_global_system(&gbs, params, N);
+    std::istringstream is (stored_state);
     
-    string bcfile = instance_file();
-
-    if (!fs::is_regular_file(bcfile)) {
-        return 1;
-    }
-    
-    ifstream bcs(bcfile.c_str(), std::ios::in|std::ios::binary);
-    
-    if (!bcs.good()) {
-        cout << "Unable to open instance file" << endl;
-        return 1;
+    if (!is.good()) {
+        cout << "Unable to restore instance state for " << gid << endl;
     }
     
     
     int version, element_size, sk_id;
     
-    bcs >> version;
-    bcs >> element_size;
-    bcs >> sk_id;
-    bcs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    is >> version;
+    is >> element_size;
+    is >> sk_id;
+    is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     
     
     // Public Key
     PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
-    element_from_stream(PK->g, gbs, bcs, element_size);
+    element_from_stream(PK->g, gbs, is, element_size);
     
     int i;
     // g_i
     PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
     for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(PK->g_i[i], gbs, bcs, element_size);
+        element_from_stream(PK->g_i[i], gbs, is, element_size);
     }
     
     // v_i
     PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
     for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(PK->v_i[i], gbs, bcs, element_size);
+        element_from_stream(PK->v_i[i], gbs, is, element_size);
     }
     
     
@@ -235,18 +225,13 @@ int BES_receiver::restore() {
     
     SK->id = sk_id;
     
-    element_from_stream(SK->privkey, gbs, bcs, element_size);
-    
-    return 0;
-    
-    
-    
+    element_from_stream(SK->privkey, gbs, is, element_size);
 }
 
-int BES_receiver::store() {
-    string bcfile = instance_file();
+void BES_receiver::store() {
     
-    ofstream os(bcfile.c_str(), std::ios::out|std::ios::binary);
+    std::ostringstream os;
+    
     int version = 0;
     int element_size = element_length_in_bytes(PK->g);
     
@@ -271,19 +256,12 @@ int BES_receiver::store() {
     
     // Store Private Key
     element_to_stream(SK->privkey, os);
-
     
-    return 0;
+    stored_state.clear();
+    stored_state = os.str();
+    os.clear();
     
 }
-
-
-string BES_receiver::instance_file() {
-    fs::path instance_path = get_instance_path("bes_receiver", gid);
-    return instance_path.string();
-}
-
-
 
 BES_receiver::~BES_receiver() {
     free_pubkey(PK, gbs);

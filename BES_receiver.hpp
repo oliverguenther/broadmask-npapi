@@ -31,6 +31,8 @@ public:
 
     ~BES_receiver();
     
+    instance_types type() { return BROADMASK_INSTANCE_BES_RECEIVER; }
+    
     /**
      * Decrypt using Broadcast system
      * @param cts bes_ciphertext_t
@@ -41,18 +43,17 @@ public:
     
     
     /**
-     * Store BES state to its instance file
+     * Store BES state to internal state string
      */
-    int store();
+    void store();
+        
     
     /**
      * Restores saved BES state
-     * @return 0 if successful, 1 otherwise
      */
-    int restore();
+    void restore();
     
-    std::string instance_file();
-
+        
     /**
      * BES public global params
      */
@@ -66,13 +67,32 @@ private:
      */
     int N;
     
+    /**
+     * This receivers private key
+     */
     bes_privkey_t SK;
     
+    
+    /**
+     * This receivers public key
+     */
     pubkey_t PK;
     
+    /*
+     * Keylen of symmetric key sk
+     */
     int keylen;
 
+    
+    /**
+     * Uses BKEM to derive symmetric key sk
+     */ 
     int derivate_decryption_key(unsigned char *key, element_t raw_key);
+    
+    /**
+     * Stores internal (SK,PK) state
+     */
+    std::string stored_state;
     
     
     //
@@ -87,6 +107,7 @@ private:
         ar & gid;
         ar & members;
         ar & keylen;
+        ar & stored_state;
     }
     
 };

@@ -13,13 +13,9 @@
 
 #include "BrowserHost.h"
 #include "Broadmask.h"
-#include "Instance.hpp"
-#include "BES_sender.hpp"
-#include "BES_receiver.hpp"
 #include "Base64.h"
-#include "UserStorage.hpp"
-#include "InstanceStorage.hpp"
 #include "Benchmarks.hpp"
+#include "ProfileManager.hpp"
 
 
 #include <boost/filesystem/path.hpp>
@@ -39,20 +35,16 @@ public:
      * 
      * @return [N,PK,HDR] as base64 encoded binary to be used on receiving side
      */
-    std::string create_sender_instance(std::string gid, std::string name, int N);
-    
-    FB::VariantMap sk_encrypt_b64(std::string gid, std::string data, bool image);
-    FB::VariantMap sk_decrypt_b64(std::string gid, std::string params, bool image);
-
-    
+    FB::VariantMap create_sender_instance(std::string gid, std::string name, int N);
+   
     /**
      * @fn BroadmaskAPI::start_receiver_instance
      * @brief Create or resume a receiver decryption system for the given groupid
      */
-    void create_receiver_instance(std::string gid, std::string name, int N, std::string params, std::string private_key);
+    FB::VariantMap create_receiver_instance(std::string gid, std::string name, int N, std::string params, std::string private_key);
     
-    void create_shared_instance(std::string gid, std::string name);
-    void create_shared_instance_withkey(std::string gid, std::string name, std::string key_b64);
+    FB::VariantMap create_shared_instance(std::string gid, std::string name);
+    FB::VariantMap create_shared_instance_withkey(std::string gid, std::string name, std::string key_b64);
 
 
     
@@ -63,9 +55,9 @@ public:
      * @param sysid User id
      * @return base64 encoded private_key_t
      */
-    std::string get_member_sk(std::string gid, std::string sysid);
+    FB::VariantMap get_member_sk(std::string gid, std::string sysid);
     
-    std::string get_symmetric_key(std::string gid);
+    FB::VariantMap get_symmetric_key(std::string gid);
     
     /**
      * @fn BroadmaskAPI::get_member_sk_gpg
@@ -79,14 +71,14 @@ public:
     
     FB::VariantMap get_instance_members(std::string gid);
     
-    int add_member(std::string gid, std::string sysid);
+    FB::VariantMap add_member(std::string gid, std::string sysid);
 
     FB::VariantMap add_members(std::string gid, std::vector<std::string> idvector);
     
     FB::VariantMap get_bes_public_params(std::string gid);
 
     
-    void remove_member(std::string gid, std::string sysid);
+    FB::VariantMap remove_member(std::string gid, std::string sysid);
     
     FB::VariantMap get_instance_descriptor(std::string id);
 
@@ -141,7 +133,12 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);    
+    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);   
+    
+    FB::VariantMap sk_encrypt_b64(std::string gid, std::string data, bool image);
+    FB::VariantMap sk_decrypt_b64(std::string gid, std::string params, bool image);
+    
+
     
     
     void run_benchmark(std::string target_folder, int max_receivers, int passes, const FB::JSObjectPtr &callback);
@@ -154,14 +151,14 @@ public:
      * @param user_id 
      * @param key_id PGP key fingerprint/keyid
      */
-    void gpg_store_keyid(std::string user_id, std::string key_id);
+    FB::VariantMap gpg_store_keyid(std::string user_id, std::string key_id);
     
     /**
      * @fn BroadmaskAPI::gpg_remove_key
      * @brief Deletes the key associated with user_id
      * @param user_id 
      */
-    void gpg_remove_key(std::string user_id);
+    FB::VariantMap gpg_remove_key(std::string user_id);
 
     
     /**
@@ -230,7 +227,7 @@ public:
      */     
     FB::VariantMap get_stored_instances();
     
-    void remove_instance(std::string id);
+    FB::VariantMap remove_instance(std::string id);
     
     void run_bes_benchmark(std::string output_folder, int max_users, int max_size, bool as_iamge, int passes);
     bes_encryption_times run_bes_encryption(std::string sender_instance, 
@@ -240,17 +237,29 @@ public:
     
     void run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes);
     
-    std::string BroadmaskAPI::unlock_profile();
-
+    FB::VariantMap unlock_profile(std::string);
+    
+    void add_profile(std::string profilename, std::string key);
+    
+    /// Getter, Setter for active_profile property
+    
+    std::string get_active_profile() {
+        return active_profile;
+    }
+    void set_active_profile(const std::string& name) {
+        active_profile = name;
+    }
     
     
 private:
     BroadmaskWeakPtr m_plugin;
     FB::BrowserHostPtr m_host;
     
+    // ProfileManager is restored upon start
+    ProfileManager *pm;
     
-    UserStorage *ustore;
-    InstanceStorage *istore;
+    
+    std::string active_profile;
 
 };
 

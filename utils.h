@@ -10,6 +10,7 @@
 
 using namespace std;
 
+int istream_size(std::istream& is);
 
 boost::filesystem::path broadmask_root();
 boost::filesystem::path instance_dir(std::string &gid);  

@@ -30,25 +30,40 @@
 #include <boost/serialization/map.hpp>
 
 
-#include "InstanceStorage.hpp"
+#include "Profile.hpp"
+#include <map>
 
 
 class ProfileManager  {
     
 public:
+    ProfileManager();
     ~ProfileManager();
     
+    /**
+     * @fn ProfileManager::get_stored_profiles
+     * @brief Returns a map (name -> PGP key) of all known profiles
+     * @return FB::VariantMap of all known profiles 
+     */    
     FB::VariantMap get_stored_profiles();
     
-    InstanceStorage* unlock_profile(std::string profilename);
     
-    void store_profile(std::string profilename, InstanceStorage* istore);
+    /**
+     * @fn ProfileManager::unlock_profile
+     * @brief Unlocks a profile by decrypting the profile.data store
+     * using the associated PGP key
+     * @return A pointer to the unlocked Profile, or NULL
+     */    
+    Profile* unlock_profile(FB::DOM::WindowPtr window, std::string profilename);
     
-    std::istream& unlock_file(std::string path);
-    
+    void store_profile(std::string profilename, Profile* istore);
+       
     void add_profile(std::string name, std::string keyid) {
-        profiles.insert(std::pair<std::string, std::string>
-                        (name, keyid));
+        
+        // Insert profile only if no such key exists
+        if (profiles.find(name) == profiles.end()) {
+            profiles.insert(std::pair<std::string, std::string>(name, keyid));
+        }
     }
     
     
@@ -61,14 +76,30 @@ private:
     // Stored profiles, name -> PGP key id
     std::map<std::string, std::string> profiles;
     
-    
     // Caches previously used profile
-    std::string active_profile;
+    Profile *active_profile;
     
-    // Caches the domain on which user requests have been performed
-    std::string active_domain;
+    // Records the time when the active profile was cached
+    time_t cached_at;
+    
+    // Stores authorized domains the user has allowed
+    std::map<std::string, bool> authorized_domains;
 
+    /**
+     * @fn ProfileManager::is_active_and_valid
+     * @brief Checks if the cached active_profile is the matching profile
+     * and if so, whether the cache is valid
+     * @return A pointer to the unlocked Profile, or NULL
+     */   
+    bool is_active_and_valid (std::string profilename);
     
+    /**
+     * @fn ProfileManager::has_user_ack
+     * @brief Checks if the user has authorized the current domain to access
+     * the Profile
+     * @return true if the user has authorized, false otherwise
+     */   
+    bool has_user_ack (std::string profilename, FB::DOM::WindowPtr window);
     
     //
     // Boost class serialization, independent from BES serialization
@@ -78,6 +109,7 @@ private:
     void serialize(Archive & ar, const unsigned int version)
     {
         ar & profiles;
+        ar & authorized_domains;
     }
 };
 

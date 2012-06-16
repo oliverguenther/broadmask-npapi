@@ -6,6 +6,11 @@
 namespace fs = boost::filesystem;
 using namespace std;
 
+int istream_size(std::istream& is) {
+    is.seekg(0, ios::end);
+    return is.tellg();
+}
+
 
 fs::path broadmask_root() {
     fs::path broadmask_dir(fs::path(getenv("HOME")) / ".broadmask");

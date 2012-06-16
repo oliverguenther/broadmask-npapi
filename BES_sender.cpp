@@ -336,30 +336,24 @@ void BES_sender::derivate_encryption_key(unsigned char *key, size_t keylen, elem
     delete[] buf;
 }
 
-int BES_sender::restore() {
+void BES_sender::restore() {
+    
+    std::stringstream is (stored_state);
     
     // Restore global parameters
     setup_global_system(&gbs, params, N);
-    
-    string bcfile = instance_file();
-    
-    if (!fs::is_regular_file(bcfile)) {
-        return 1;
-    }
-    
-    ifstream bcs(bcfile.c_str(), std::ios::in|std::ios::binary);
-    
-    if (!bcs.good()) {
+      
+    if (!is.good()) {
         cout << "Unable to open instance file" << endl;
-        return 1;
+        return;
     }
     
     
     int version, element_size;
     
-    bcs >> version;
-    bcs >> element_size;
-    bcs.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    is >> version;
+    is >> element_size;
+    is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
     
     
     // System
@@ -368,41 +362,37 @@ int BES_sender::restore() {
     // Public Key
     sys->PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
-    element_from_stream(sys->PK->g, gbs, bcs, element_size);
+    element_from_stream(sys->PK->g, gbs, is, element_size);
     
     int i;
     // g_i
     sys->PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
     for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(sys->PK->g_i[i], gbs, bcs, element_size);
+        element_from_stream(sys->PK->g_i[i], gbs, is, element_size);
     }
     
     // v_i
     sys->PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
     for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(sys->PK->v_i[i], gbs, bcs, element_size);
+        element_from_stream(sys->PK->v_i[i], gbs, is, element_size);
     }
     
     // Restore private keys
     sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));        
     for (i = 0; i < (int) N; ++i) {
-        element_from_stream(sys->d_i[i], gbs, bcs, element_size);
+        element_from_stream(sys->d_i[i], gbs, is, element_size);
     }
     
     // Restore my own private key
-    private_key_from_stream(&SK, gbs, bcs, element_size);
-    
-    
-    return 0;
-    
-    
-    
+    private_key_from_stream(&SK, gbs, is, element_size);
+       
 }
 
-int BES_sender::store() {
-    string bcfile = instance_file();    
+void BES_sender::store() {
     
-    ofstream os(bcfile.c_str(), std::ios::out|std::ios::binary);
+    std::ostringstream os;
+    
+    
     int version = 0;
     int element_size = element_length_in_bytes(sys->PK->g);
     
@@ -432,19 +422,16 @@ int BES_sender::store() {
     // Store my own private key
     private_key_to_stream(SK, os);
     
-    return 0;
-    
+    stored_state.clear();
+    stored_state = os.str();
+    os.clear();
 }
 
-string BES_sender::instance_file() {
-    fs::path instance_path = get_instance_path("bes_sender", gid);
-    return instance_path.string();
-}
-
-    
+  
     
 BES_sender::~BES_sender() {
     free_bes_system(sys, gbs);
     availableIDs.clear();
     members.clear();
+    stored_state.clear();
 }
