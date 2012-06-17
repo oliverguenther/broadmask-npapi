@@ -42,13 +42,16 @@ Profile::~Profile() {
 
 FB::VariantMap Profile::get_stored_instances() {
     FB::VariantMap keys;
-    for (boost::ptr_map<string,string>::iterator it = instances.begin(); it != instances.end(); ++it) {
+    for (boost::ptr_map<std::string,InstanceStore>::iterator it = instances.begin(); it != instances.end(); ++it) {
         FB::VariantMap instmap;
-        InstanceStore *inst = instance_struct(it->first);
+        InstanceStore *inst = it->second;
         instmap["id"] = inst->id;
         instmap["name"] = inst->name;
         instmap["type"] = inst->type;
-        instmap["max_users"] = inst->max_users;        
+        
+        if (inst->type == BROADMASK_INSTANCE_BES_SENDER 
+            || inst->type == BROADMASK_INSTANCE_BES_RECEIVER)
+            instmap["max_users"] = inst->max_users;        
         keys[it->first] = instmap;
     }
     
@@ -220,20 +223,41 @@ instance_types Profile::instance_type(std::string id) {
 
 
 Profile* Profile::load(istream& is) {
+    if (!is.good()) {
+        cerr << "[BroadMask] Error Loading Profile: Faulty input stream" << endl;
+        return NULL;
+    }
+    
     Profile *istore = new Profile();
     try {
         boost::archive::text_iarchive ia(is);
         ia >> *istore;
         return istore;
     } catch (exception& e) {
-        cerr << e.what() << endl;
+        cerr << "[BroadMask] Error Loading Profile:" << e.what() << endl;
         delete istore;
+        return NULL;
     }
-    return istore;
 }
 
 
-void Profile::store(Profile* istore, ostream& os) {  
+void Profile::store(Profile* istore, ostream& os) { 
+    
+    // Update state for all loaded instances
+    for (boost::ptr_map<std::string,InstanceStore>::iterator it = instances.begin(); it != instances.end(); ++it) {
+        
+        // If this instance is loaded
+        boost::ptr_map<std::string,InstanceStore>::iterator loaded = loaded_instances.find(it->first);
+        if (loaded != loaded_instances.end()) {
+            
+            Instance *loaded = loaded->second;
+        }
+        
+    }
+            
+    // clear loaded instances
+    loaded_instances.clear();
+    
     try {
         boost::archive::text_oarchive oa(os);
         oa << *istore;

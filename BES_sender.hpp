@@ -80,8 +80,10 @@ public:
      * @return memberid (>= 0) when id is member in this system, -1 otherwise
      */
     int member_id(std::string id);
-    
-    std::string instance_file();
+
+    int max_users() {
+        return N;
+    }
     
     
     

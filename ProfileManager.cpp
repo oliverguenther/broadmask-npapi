@@ -202,7 +202,10 @@ Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string p
     std::istringstream is(recovered);
     
     active_profile = Profile::load(is);
-    cached_at = time(NULL);
+    
+    if (active_profile)
+        cached_at = time(NULL);
+
     return active_profile;
 }
 

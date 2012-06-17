@@ -139,7 +139,7 @@ FB::VariantMap gpgme_search_key(std::string pattern, int secret_keys_only) {
 }
 
 FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id) {
-    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str());
+    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str(), 1);
     return result_to_variant(r);
 }
 
@@ -150,7 +150,7 @@ FB::VariantMap gpgme_decrypt(std::string& data) {
 }
 
 
-gpgme_result gpgme_encrypt(const char *data, const char *key_id) {
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_data_t in, out;
@@ -173,7 +173,7 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id) {
     }
     
     gpgme_release (ctx);
-    gpgme_result enc_result = gpgme_encrypt_io(in, out, key_id);
+    gpgme_result enc_result = gpgme_encrypt_io(in, out, key_id, sign);
     
     if (enc_result.error)
         return enc_result;
@@ -201,7 +201,7 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id) {
 }
 
 
-gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* key_id) {
+gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_key_t key[2] = { NULL, NULL };
@@ -214,7 +214,12 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
     if (err) {
         return gpgme_error(err);
     }
-    err = gpgme_op_encrypt_sign (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
+    
+    if (sign)
+        err = gpgme_op_encrypt_sign (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
+    else
+        err = gpgme_op_encrypt(ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
+        
     if (err) {
         return gpgme_error(err);
     }
@@ -277,7 +282,8 @@ gpgme_result gpgme_encrypt_tofile(const char *data,
 //
 //    gpgme_release (ctx);
     
-    gpgme_result enc_result = gpgme_encrypt(data, key_id);
+    // Encrypt, but do not sign
+    gpgme_result enc_result = gpgme_encrypt(data, key_id, 0);
     
     if (enc_result.error)
         return enc_result;
@@ -293,8 +299,6 @@ gpgme_result gpgme_encrypt_tofile(const char *data,
         return r;
     }
 
-    cout << "result is " << endl << enc_result.result << endl;
-    
     fwrite (enc_result.result , 1 , strlen(enc_result.result) , outfile );
     
     if (fflush(outfile) != 0)
@@ -410,7 +414,13 @@ gpgme_ctx_t create_gpg_context() {
     gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
 #endif
     
+    gpgme_check_version (NULL);
+    
     err = gpgme_new (&ctx);
+    if (err) {
+        cerr << "Could not create context " << gpgme_strerror(err) << endl;
+        return NULL;
+    }
     gpgme_set_textmode (ctx, 1);
     gpgme_set_armor (ctx, 1);
     

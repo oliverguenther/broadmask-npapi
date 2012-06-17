@@ -36,6 +36,10 @@ public:
         return gid;
     }
     
+    virtual int max_users() {
+        return -1; // No restriction
+    }
+    
     virtual instance_types type() = 0;
     
     /**

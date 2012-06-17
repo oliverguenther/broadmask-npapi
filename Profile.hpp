@@ -70,16 +70,17 @@ struct InstanceStore {
     : name(name) {
         id = instance->id();
         type = instance->type();
+        max_users = instance->max_users();
         
         switch (type) {
             case BROADMASK_INSTANCE_BES_SENDER:
                 store<BES_sender>(instance);
                 break;
             case BROADMASK_INSTANCE_BES_RECEIVER:
-                store<BES_sender>(instance);
+                store<BES_receiver>(instance);
                 break;
             case BROADMASK_INSTANCE_SK:
-                store<BES_sender>(instance);
+                store<SK_Instance>(instance);
                 break;
             default:
                 break;
@@ -95,10 +96,7 @@ struct InstanceStore {
     // Instance type
     instance_types type;
     
-    // stores boost-serialized instance
-    std::string serialized_instance;
-    
-    // stores internal structs
+    // stores serialized instance data
     std::string serialized_data;
     
     // Instance max. number of users
@@ -109,6 +107,9 @@ struct InstanceStore {
         
         // Only derived classes of Instance
         (void)static_cast<Instance*>((InstanceType*)0);
+        
+        // Let instance store internal data
+        instance->store();
         
         // Update data 
         std::ostringstream oss;
@@ -123,10 +124,10 @@ struct InstanceStore {
     template<typename InstanceType>
     InstanceType* restore() {
         
-        Instance *instance = NULL;
-        
         // Only derived classes of Instance
         (void)static_cast<Instance*>((InstanceType*)0);
+        
+        InstanceType *instance = new InstanceType;
         
         // Restore from serialized data
         std::istringstream iss (serialized_data);
@@ -134,6 +135,9 @@ struct InstanceStore {
         
         ia >> *((InstanceType*) instance);
         iss.clear();
+        
+        // Restore internal data
+        instance->restore();
         
         return dynamic_cast<InstanceType*>(instance);
     }
@@ -326,7 +330,6 @@ private:
      */
     InstanceStore* instance_struct(std::string id);
 
-    
     //
     // Boost class serialization, independent from BES serialization
     //

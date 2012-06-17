@@ -46,9 +46,10 @@ typedef struct {
  * @brief Tries to encrypt data with PGP key key_id
  * @param data Data to encrypt
  * @param key_id key identifier or fingerprint
+ * @param sign set != 0 to use sign operation
  * @return gpgme_result struct
  */
-gpgme_result gpgme_encrypt(const char *data, const char *key_id);
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign);
 
 /**
  * @fn gpgme_encrypt_input
@@ -57,9 +58,10 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id);
  * @param in gpgme_data_t to encrypt
  * @param out gpgme_data_t output
  * @param key_id key identifier or fingerprint
+ * @param sign set != 0 to use sign operation
  * @return gpgme_result struct
  */
-gpgme_result gpgme_encrypt_io(gpgme_data_t in, gpgme_data_t out, const char* key_id);
+gpgme_result gpgme_encrypt_io(gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign);
 
 
 /**

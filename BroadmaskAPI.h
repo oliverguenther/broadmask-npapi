@@ -241,6 +241,8 @@ public:
     
     void add_profile(std::string profilename, std::string key);
     
+    FB::VariantMap BroadmaskAPI::store_profile(std::string profilename);
+    
     /// Getter, Setter for active_profile property
     
     std::string get_active_profile() {

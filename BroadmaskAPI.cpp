@@ -641,6 +641,15 @@ FB::VariantMap BroadmaskAPI::unlock_profile(std::string profilename) {
 }
 
 
+FB::VariantMap BroadmaskAPI::store_profile(std::string profilename) {
+
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    pm->store_profile(profilename, p);
+    result["error"] = false;
+    return result;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 BroadmaskPtr BroadmaskAPI::getPlugin()
 {
@@ -697,6 +706,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("run_benchmark", make_method(this, &BroadmaskAPI::run_benchmark));
     registerMethod("add_profile", make_method(this, &BroadmaskAPI::add_profile));
     registerMethod("unlock_profile", make_method(this, &BroadmaskAPI::unlock_profile));
+    registerMethod("store_profile", make_method(this, &BroadmaskAPI::store_profile));    
 
     // Register active profile property
     registerProperty("active_profile",  make_property(this, &BroadmaskAPI::get_active_profile, &BroadmaskAPI::set_active_profile));

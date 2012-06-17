@@ -59,6 +59,10 @@ public:
      */
     bes_global_params_t gbs;
     
+    int max_users() {
+        return N;
+    }
+    
 private:
     
     
