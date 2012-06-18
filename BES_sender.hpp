@@ -14,6 +14,7 @@
 #include <boost/serialization/deque.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/base_object.hpp>
+#include <boost/serialization/export.hpp>
 
 // filesystem
 #include <boost/filesystem/operations.hpp>
@@ -23,12 +24,7 @@
 class BES_sender : public Instance  {
     
 public: 
-    // Required for (De-)Serialization
-    BES_sender() : Instance() {}
-    BES_sender(std::string gid, int num_users);    
-    
-    BES_sender(const BES_sender&);
-    
+    BES_sender(std::string gid, int num_users);            
     ~BES_sender();
     
     instance_types type() { return BROADMASK_INSTANCE_BES_SENDER; }
@@ -144,6 +140,10 @@ private:
     //
     // Boost class serialization, independent from BES serialization
     //
+    
+    // Default Constructor, required for (De-)Serialization
+    BES_sender() : Instance() {}
+    
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)

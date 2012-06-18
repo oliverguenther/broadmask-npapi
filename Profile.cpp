@@ -71,28 +71,14 @@ Instance* Profile::load_unknown(std::string id) {
     if (!store)
         return NULL;
     
-    Instance *instance = NULL;
-    switch (store->type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
-            instance = store->restore<BES_sender>();
-            break;
-        case BROADMASK_INSTANCE_BES_RECEIVER:
-            instance = store->restore<BES_receiver>();
-            break;
-        case BROADMASK_INSTANCE_SK:
-            instance = store->restore<SK_Instance>();
-            break;
-        default:
-            break;
-    }
-    
+    Instance *instance = store->restore();
     return instance;
 }
 
 
 std::string Profile::start_sender_instance(string id, string name, int N) {
     
-    BES_sender* instance = load_instance<BES_sender>(id);
+    BES_sender* instance = dynamic_cast<BES_sender*>(load_instance(id));
     stringstream params;
     
     
@@ -145,7 +131,7 @@ void Profile::start_receiver_instance(string id, string name, int N, string pubd
 }
 
 void Profile::start_shared_instance(std::string id, std::string name) {
-    SK_Instance* instance = load_instance<SK_Instance>(id);
+    SK_Instance* instance = dynamic_cast<SK_Instance*>(load_instance(id));
     
     if (instance) {
         return;
@@ -166,7 +152,7 @@ void Profile::start_shared_instance(std::string id, std::string name) {
 }
 
 void Profile::start_shared_instance_withkey(std::string id, std::string name, std::string key_b64) {
-    SK_Instance* instance = load_instance<SK_Instance>(id);
+    SK_Instance* instance = dynamic_cast<SK_Instance*>(load_instance(id));
     
     if (instance) {
         // remove instance
@@ -221,21 +207,39 @@ instance_types Profile::instance_type(std::string id) {
     
 }
 
-
-Profile* Profile::load(istream& is) {
-    if (!is.good()) {
-        cerr << "[BroadMask] Error Loading Profile: Faulty input stream" << endl;
-        return NULL;
+void Profile::update_stores() {
+    // Update state for all loaded instances
+    for (boost::ptr_map<std::string,InstanceStore>::iterator it = instances.begin(); it != instances.end(); ++it) {
+        
+        // If this instance is loaded
+        boost::ptr_map<std::string,Instance>::iterator lit = loaded_instances.find(it->first);
+        if (lit != loaded_instances.end()) {
+            
+            Instance *instance = lit->second;
+            InstanceStore *istore = it->second;
+            istore->store(instance);
+        }
+        
     }
-    
-    Profile *istore = new Profile();
+}
+
+
+void Profile::unload_instances() {
+    loaded_instances.clear();
+}
+
+Profile* Profile::load(std::istream& is) {
+    if (is.bad()) {
+        cerr << "[BroadMask] Error Loading Profile: Bad input stream" << endl;
+        return NULL;
+    }    
+    Profile *istore;
     try {
         boost::archive::text_iarchive ia(is);
-        ia >> *istore;
+        ia >> istore;
         return istore;
     } catch (exception& e) {
         cerr << "[BroadMask] Error Loading Profile:" << e.what() << endl;
-        delete istore;
         return NULL;
     }
 }
@@ -243,24 +247,16 @@ Profile* Profile::load(istream& is) {
 
 void Profile::store(Profile* istore, ostream& os) { 
     
-    // Update state for all loaded instances
-    for (boost::ptr_map<std::string,InstanceStore>::iterator it = instances.begin(); it != instances.end(); ++it) {
-        
-        // If this instance is loaded
-        boost::ptr_map<std::string,InstanceStore>::iterator loaded = loaded_instances.find(it->first);
-        if (loaded != loaded_instances.end()) {
-            
-            Instance *loaded = loaded->second;
-        }
-        
-    }
-            
+    // update stores
+    istore->update_stores();
+    
     // clear loaded instances
-    loaded_instances.clear();
+    istore->unload_instances();
     
     try {
         boost::archive::text_oarchive oa(os);
-        oa << *istore;
+        oa << istore;
+
     } catch (exception& e) {
         cerr << e.what() << endl;
     }    

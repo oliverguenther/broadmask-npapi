@@ -71,16 +71,6 @@ BES_receiver::BES_receiver(string groupid, int max_users, string public_data, st
     private_key_from_stream(&SK, gbs, skss, element_size);
 }
 
-BES_receiver::BES_receiver(const BES_receiver& b) {
-    N = b.N;
-    gid = b.gid;
-    members = b.members;
-    SK = b.SK;    
-    PK = b.PK;    
-    keylen = b.keylen;
-    setup_global_system(&gbs, params, N);
-}
-
 int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key) {
 
     int keysize = element_length_in_bytes(raw_key);

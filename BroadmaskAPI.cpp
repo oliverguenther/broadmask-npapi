@@ -179,7 +179,7 @@ FB::VariantMap BroadmaskAPI::remove_member(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
     if (!bci) {
         result["error"] = true;
         result["error_msg"] = "Instance not found";
@@ -221,7 +221,7 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *sender = p->load_instance<BES_sender>(gid);
+    BES_sender *sender = dynamic_cast<BES_sender*>(p->load_instance(gid));
     if (!sender) {
         result["error"] = true;
         result["error_msg"] = "Instance not found";
@@ -245,7 +245,7 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
 FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
-    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
+    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
     
     if (!ski) {
         std::stringstream ss;
@@ -267,7 +267,7 @@ FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
 FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE
-    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
     
     if (!bci) {
         std::stringstream ss;
@@ -307,7 +307,7 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
     switch (type) {
         case BROADMASK_INSTANCE_BES_SENDER:
         {
-            BES_sender *instance = p->load_instance<BES_sender>(gid);
+            BES_sender *instance = dynamic_cast<BES_sender*>(p->load_instance(gid));
             if (!instance) {
                 result["error"] = true;
                 result["error_msg"] = "Couldn't load sender instance";
@@ -378,7 +378,7 @@ FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *bci = p->load_instance<BES_sender>(gid);
+    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
     
     if (!bci) {
         result["error"] = true;
@@ -441,7 +441,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
     switch (type) {
         case BROADMASK_INSTANCE_BES_SENDER:
         {
-            BES_sender* bci = p->load_instance<BES_sender>(gid);
+            BES_sender* bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             result = bci->bes_decrypt(ct);
             free_bes_ciphertext(ct, bci->gbs);
@@ -449,7 +449,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
         }
         case BROADMASK_INSTANCE_BES_RECEIVER:
         {
-            BES_receiver* bci = p->load_instance<BES_receiver>(gid);
+            BES_receiver* bci = dynamic_cast<BES_receiver*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             result = bci->bes_decrypt(ct);
             free_bes_ciphertext(ct, bci->gbs);
@@ -469,7 +469,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
 FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, bool image) {
     M_INIT_AND_UNLOCK_PROFILE
     
-    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
+    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
 
     if (!ski) {
         cout << "Shared Instance " << gid << " not found ";
@@ -502,7 +502,7 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    SK_Instance *ski = p->load_instance<SK_Instance>(gid);
+    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
     if (!ski) {
         result["error"] = true;
         result["error_msg"] = "Shared Instance not found";

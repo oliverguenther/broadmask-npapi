@@ -58,6 +58,15 @@
 #include "variant_map.h"
 
 
+// We need to register all derived classes for Boost
+// TODO better way?
+// http://stackoverflow.com/questions/3396330/where-to-put-boost-class-export-for-boostserialization
+
+#define M_BOOST_REG_DERIVED(archive) \
+archive.register_type(static_cast<BES_sender*>(NULL)); \
+archive.register_type(static_cast<BES_receiver*>(NULL)); \
+archive.register_type(static_cast<SK_Instance*>(NULL));
+
 /**
  * @struct instance_s
  * @brief Descriptor for a serialized instance
@@ -71,20 +80,7 @@ struct InstanceStore {
         id = instance->id();
         type = instance->type();
         max_users = instance->max_users();
-        
-        switch (type) {
-            case BROADMASK_INSTANCE_BES_SENDER:
-                store<BES_sender>(instance);
-                break;
-            case BROADMASK_INSTANCE_BES_RECEIVER:
-                store<BES_receiver>(instance);
-                break;
-            case BROADMASK_INSTANCE_SK:
-                store<SK_Instance>(instance);
-                break;
-            default:
-                break;
-        }
+        store(instance);
     }
     
     // Instance identifier
@@ -102,44 +98,43 @@ struct InstanceStore {
     // Instance max. number of users
     int max_users;
     
-    template<typename InstanceType>
     void store(Instance *instance) {
-        
-        // Only derived classes of Instance
-        (void)static_cast<Instance*>((InstanceType*)0);
-        
+                        
         // Let instance store internal data
         instance->store();
         
         // Update data 
-        std::ostringstream oss;
+        std::stringstream oss;
         boost::archive::text_oarchive oa(oss);
         
-        oa << *((InstanceType*) instance);
+        // Register classes for that archive
+        M_BOOST_REG_DERIVED(oa)
+        
+        oa << instance;
         
         serialized_data = oss.str();
         oss.clear();
     }
     
-    template<typename InstanceType>
-    InstanceType* restore() {
+    Instance* restore() {
         
-        // Only derived classes of Instance
-        (void)static_cast<Instance*>((InstanceType*)0);
         
-        InstanceType *instance = new InstanceType;
+        Instance *instance;
         
         // Restore from serialized data
         std::istringstream iss (serialized_data);
         boost::archive::text_iarchive ia(iss);
         
-        ia >> *((InstanceType*) instance);
+        // Register classes for that archive
+        M_BOOST_REG_DERIVED(ia)
+        
+        ia >> instance;
         iss.clear();
         
         // Restore internal data
         instance->restore();
         
-        return dynamic_cast<InstanceType*>(instance);
+        return instance;
     }
         
     template<class Archive>
@@ -184,20 +179,19 @@ public:
     
     /**
      * @fn Profile::load_instance
-     * @brief Try to load a specific instance derived object, given it's type
+     * @brief Try to load a specific instance derived object
      * @param id std::string Identifier of the instance to be loaded
-     * @return A pointer to the object of type InstanceType* or NULL, if either 
-     * the instance does not exist, or the type does not match
+     * @return A pointer to the base object Instace* or NULL, if either 
+     * the instance does not exist
      */
-    template<typename InstanceType>
-    InstanceType* load_instance(std::string id) {
+    Instance* load_instance(std::string id) {
         
         // Check if instance has been cached
         boost::ptr_map<std::string, Instance>::iterator it;
         it = loaded_instances.find(id);
         
         if (it != loaded_instances.end())
-            return dynamic_cast<InstanceType*>(it->second);
+            return it->second;
         
         // Check storage for active record
         InstanceStore* store = instance_struct(id);
@@ -205,7 +199,7 @@ public:
         if (!store)
             return NULL;
         
-        return store->restore<InstanceType>();
+        return store->restore();
     }
     
     /**
@@ -272,7 +266,20 @@ public:
      * @param key_b64 the shared key sk as Base64-encoded string
      */
     void start_shared_instance_withkey(std::string id, std::string name, std::string key_b64);
+    
+    
+    /**
+     * @fn Profile::unload_instances
+     * @brief Removes all cached entries in loaded_instances
+     */
+    void unload_instances();
 
+    /**
+     * @fn Profile::update_stores()
+     * @brief Save all progress from instances in loaded_instances
+     * to their InstanceStore
+     */
+    void update_stores();
     
     /**
      * @fn Profile::load

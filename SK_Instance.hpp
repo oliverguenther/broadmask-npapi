@@ -12,20 +12,17 @@
 // serialization
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
-#include <boost/serialization/set.hpp>
 #include <boost/serialization/base_object.hpp>
-
+#include <boost/serialization/vector.hpp>
+#include <boost/serialization/export.hpp>
 
 
 
 class SK_Instance : public Instance  {
     
 public: 
-    // Required for De-Serialization
-    SK_Instance() : Instance() {}
     SK_Instance(std::string groupid);
     SK_Instance(std::string groupid, std::string key_b64);
-    
     ~SK_Instance();
     
     instance_types type() { return BROADMASK_INSTANCE_SK; }
@@ -53,6 +50,10 @@ private:
     //
     // Boost class serialization
     //
+    
+    // Default Constructor, required for De-Serialization
+    SK_Instance() : Instance() {}
+    
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)

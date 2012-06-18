@@ -80,17 +80,6 @@ BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
     
 }
 
-BES_sender::BES_sender(const BES_sender& b) {
-    
-    N = b.N;
-    members = b.members;
-    gid = b.gid;
-    sys = b.sys;
-    SK = b.SK;
-    availableIDs = b.availableIDs;
-    setup_global_system(&gbs, params, N);
-}
-
 int BES_sender::add_member(std::string id) {
 
     int current_id = member_id(id);

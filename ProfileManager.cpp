@@ -24,6 +24,8 @@
 #include "ProfileManager.hpp"
 #include "gnupg_wrapper.hpp"
 #include "utils.h"
+#include "Base64.h"
+
 #include <time.h>
 #include <string>
 #include <fstream>
@@ -107,7 +109,7 @@ bool ProfileManager::is_active_and_valid (std::string profilename) {
         return false; // Different profile cached
     
     // compare cache time
-    int cache_hold = 180; // 3 minutes
+    int cache_hold = 1800; // 30 minutes
     time_t current = time (NULL);    
     if (current > (cached_at + cache_hold)) {
         // Store and invalidate cache
@@ -137,11 +139,12 @@ void ProfileManager::store_profile(std::string profilename, Profile* istore) {
     Profile::store(istore, os);
     
     std::string keyid = it->second;
-    std::string istore_str = os.str();
+    // Encode Profile as Base64, as Instances are 
+    // manually serialized, and may contain \0 characters
+    std::string istore_str = base64_encode(os.str());
     
-    gpgme_result enc_result = gpgme_encrypt_tofile(istore_str.c_str(), keyid.c_str(), datapath.string().c_str());
-    
-    
+    gpgme_result enc_result = gpgme_encrypt_tofile(istore_str.data(), keyid.c_str(), datapath.string().c_str());
+       
     if (enc_result.error) {
         cerr << "[BroadMask] Could not store profile " << profilename << ". Error was: "
         << enc_result.error_msg << endl;
@@ -198,7 +201,7 @@ Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string p
     }
     
     // Use recovered plaintext to load Profile
-    std::string recovered = std::string(dec_result.result);
+    std::string recovered = base64_decode(std::string(dec_result.result));
     std::istringstream is(recovered);
     
     active_profile = Profile::load(is);

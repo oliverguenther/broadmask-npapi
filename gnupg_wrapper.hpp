@@ -47,9 +47,10 @@ typedef struct {
  * @param data Data to encrypt
  * @param key_id key identifier or fingerprint
  * @param sign set != 0 to use sign operation
+ * @param sign set != 0 to use text mode with armoring
  * @return gpgme_result struct
  */
-gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign);
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int armor);
 
 /**
  * @fn gpgme_encrypt_input

@@ -20,7 +20,6 @@ class UserStorage  {
     
 public: 
     UserStorage();
-    ~UserStorage();
     
     /**
      * @fn UserStorage::setPGPKey

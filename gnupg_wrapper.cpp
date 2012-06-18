@@ -1,6 +1,7 @@
 #include "gnupg_wrapper.hpp"
 #include <cstdio>
 #include <iostream>
+#include <fstream>
 using std::cout;
 using std::cerr;
 using std::endl;
@@ -139,7 +140,7 @@ FB::VariantMap gpgme_search_key(std::string pattern, int secret_keys_only) {
 }
 
 FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id) {
-    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str(), 1);
+    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str(), 1, 1);
     return result_to_variant(r);
 }
 
@@ -150,8 +151,14 @@ FB::VariantMap gpgme_decrypt(std::string& data) {
 }
 
 
-gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign) {
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int armored) {
     gpgme_ctx_t ctx = create_gpg_context();
+    
+    // Armoring is enabled by default
+    if (!armored) {
+        gpgme_set_textmode (ctx, 0);
+        gpgme_set_armor (ctx, 0);
+    }
     gpgme_error_t err;
     gpgme_data_t in, out;
     
@@ -241,56 +248,19 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
     return r;
 }
 
-gpgme_result gpgme_encrypt_tofile(const char *data, 
+gpgme_result gpgme_encrypt_tofile(const char *data,
                                   const char *key_id, const char *path) {
+        
     
-//    FILE* outfile = fopen(path, "w+");
-//    gpgme_result r;
-//    
-//    
-//    if (!outfile) {
-//        r.error = true;
-//        r.error_msg = "Couldn't open file " + std::string(path);
-//        return r;
-//    }
-//    
-//    gpgme_ctx_t ctx = create_gpg_context();
-//    gpgme_data_t in, out;
-//    
-//    // Set out to outfile stream
-//    gpgme_data_new_from_stream(&out, outfile);
-//    gpgme_error_t err;
-//    
-//    
-//    err = gpgme_set_protocol(ctx, GPGME_PROTOCOL_OpenPGP);
-//    if (err) {
-//        return gpgme_error(err);
-//    }
-//    gpgme_set_armor (ctx, 1);
-//    
-//    err = gpgme_data_new_from_mem (&in, data, strlen(data), 0);
-//    if (err) {
-//        return gpgme_error(err);
-//    }
-//    
-//    err = gpgme_data_new (&out);
-//    if (err) {
-//        return gpgme_error(err);
-//    }
-//    
-//    gpgme_result enc_result = gpgme_encrypt_io(in, out, key_id);
-//
-//    gpgme_release (ctx);
-    
-    // Encrypt, but do not sign
-    gpgme_result enc_result = gpgme_encrypt(data, key_id, 0);
+    // Encrypt without armoring, do not sign
+    gpgme_result enc_result = gpgme_encrypt(data, key_id, 0, 0);
     
     if (enc_result.error)
         return enc_result;
     
     
     // Write result to file
-    FILE* outfile = fopen(path, "w+");
+    FILE* outfile = fopen(path, "w");
    
     if (!outfile) {
         gpgme_result r;
@@ -365,10 +335,10 @@ gpgme_result gpgme_decrypt_input(gpgme_data_t input) {
 gpgme_result gpgme_decrypt_file(const char *path) {
 	gpgme_data_t in;
 	gpgme_error_t err;
-    
+
 	err = gpgme_data_new_from_file(&in, path, 1);
 	if (err) return gpgme_error(err);
-    
+
 	return gpgme_decrypt_input(in);
 }
 

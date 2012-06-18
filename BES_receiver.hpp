@@ -18,17 +18,13 @@ extern "C" {
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/map.hpp>
 #include <boost/serialization/base_object.hpp>
+#include <boost/serialization/export.hpp>
 
 
 class BES_receiver : public Instance  {
     
-public: 
-    // Required for De-Serialization
-    BES_receiver() : Instance() {}
-    BES_receiver(std::string groupid, int N, std::string public_data, std::string private_key);
-    
-    BES_receiver(const BES_receiver&);
-
+public:     
+    BES_receiver(std::string groupid, int N, std::string public_data, std::string private_key);    
     ~BES_receiver();
     
     instance_types type() { return BROADMASK_INSTANCE_BES_RECEIVER; }
@@ -86,12 +82,6 @@ private:
      * Keylen of symmetric key sk
      */
     int keylen;
-
-    
-    /**
-     * Uses BKEM to derive symmetric key sk
-     */ 
-    int derivate_decryption_key(unsigned char *key, element_t raw_key);
     
     /**
      * Stores internal (SK,PK) state
@@ -99,9 +89,20 @@ private:
     std::string stored_state;
     
     
+/**
+     * Uses BKEM to derive symmetric key sk
+     */ 
+    int derivate_decryption_key(unsigned char *key, element_t raw_key);
+       
+    
     //
     // Boost class serialization, independent from BES serialization
     //
+    
+    // Default constructor, required for De-Serialization
+    BES_receiver() : Instance() {}
+    
+    
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)

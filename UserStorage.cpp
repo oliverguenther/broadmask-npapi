@@ -43,10 +43,6 @@ UserStorage::UserStorage() {
     version = (char *) gpgme_check_version(NULL);
 }
 
-UserStorage::~UserStorage() {
-    keymap.clear();
-}
-
 FB::VariantMap UserStorage::associatedKeys() {
     FB::VariantMap keys;
     for (map<string,string>::iterator it = keymap.begin(); it != keymap.end(); ++it) {
