@@ -1,3 +1,3 @@
-[submodule "PBC_bes"]
-	path = PBC_bes
-	url = https://github.com/oliverguenther/PBC_bes
+[submodule "PBC_BKEM"]
+	path = PBC_BKEM
+	url = https://github.com/oliverguenther/PBC_BKEM

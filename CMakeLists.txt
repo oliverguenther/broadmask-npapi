@@ -16,8 +16,8 @@ file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     [^.]*.h
     [^.]*.hpp
     [^.]*.cmake
-	PBC_bes/pbc_bes.h
-	PBC_bes/pbc_bes.c
+	PBC_BKEM/bkem.h
+	PBC_BKEM/bkem.c
     )
 
 include_directories(${PLUGIN_INCLUDE_DIRS})

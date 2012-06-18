@@ -9,7 +9,7 @@ using CryptoPP::AES;
 
 using namespace std;
 
-void element_from_stream(element_t el, bes_global_params_t gbs, std::istream& is, int numbytes) {    
+void element_from_stream(element_t el, bkem_global_params_t gbs, std::istream& is, int numbytes) {    
     unsigned char buf[numbytes];    
     is.read(reinterpret_cast<char*>(buf), numbytes);
     element_init_G1(el, gbs->pairing);
@@ -25,7 +25,7 @@ void element_to_stream(element_t el, std::ostream& os) {
     
 }
 
-void ciphertext_from_stream(bes_ciphertext_t* ct, bes_global_params_t gbs, istream& is) {
+void ciphertext_from_stream(bes_ciphertext_t* ct, bkem_global_params_t gbs, istream& is) {
     bes_ciphertext_t cipher = (bes_ciphertext_t) malloc(sizeof(bes_ciphertext_s));
     
     int version, element_size;
@@ -73,7 +73,7 @@ size_t encryption_header_to_bytes(unsigned char** buf, element_t* HDR, int size)
     return buf_size;
 }
 
-void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, ostream& os) {
+void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, ostream& os) {
     int version = 0;
     int element_size = element_length_in_bytes(ct->HDR[0]);
 
@@ -176,7 +176,7 @@ void sk_ciphertext_from_stream(sk_ciphertext_t *ctptr, istream& is) {
     *ctptr = sk_ct;
 }
 
-void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::istream& is, int element_size) {
+void public_key_from_stream(pubkey_t *pubkey_p, bkem_global_params_t gbs, std::istream& is, int element_size) {
     
     pubkey_t PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
     
@@ -199,7 +199,7 @@ void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::is
     *pubkey_p = PK;
 }
 
-void public_key_to_stream(pubkey_t PK, bes_global_params_t gbs, std::ostream& os) {
+void public_key_to_stream(pubkey_t PK, bkem_global_params_t gbs, std::ostream& os) {
 
     // g
     element_to_stream(PK->g, os);
@@ -217,7 +217,7 @@ void public_key_to_stream(pubkey_t PK, bes_global_params_t gbs, std::ostream& os
         
 }
 
-void private_key_from_stream(bes_privkey_t *privkey, bes_global_params_t gbs, std::istream& is, int element_size) {
+void private_key_from_stream(bes_privkey_t *privkey, bkem_global_params_t gbs, std::istream& is, int element_size) {
     
     bes_privkey_t sk = (bes_privkey_t) pbc_malloc(sizeof(struct bes_privkey_s));
 
@@ -245,7 +245,7 @@ void free_sk_ciphertext(sk_ciphertext_t ct) {
     free(ct);
 }
 
-void free_bes_ciphertext(bes_ciphertext_t ct, bes_global_params_t gbs) {
+void free_bes_ciphertext(bes_ciphertext_t ct, bkem_global_params_t gbs) {
     if (!ct || !gbs)
         return;
     

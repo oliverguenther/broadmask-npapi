@@ -346,7 +346,7 @@ void BES_sender::restore() {
     
     
     // System
-    sys = (bes_system_t) pbc_malloc(sizeof(struct bes_system_s));
+    sys = (bkem_system_t) pbc_malloc(sizeof(struct bkem_system_s));
     
     // Public Key
     sys->PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
@@ -419,7 +419,7 @@ void BES_sender::store() {
   
     
 BES_sender::~BES_sender() {
-    free_bes_system(sys, gbs);
+    free_bkem_system(sys, gbs);
     availableIDs.clear();
     members.clear();
     stored_state.clear();

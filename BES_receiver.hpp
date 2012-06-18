@@ -9,7 +9,7 @@
 #include <gmpxx.h>
 
 extern "C" {
-#include "PBC_bes/pbc_bes.h"
+#include "PBC_BKEM/bkem.h"
 }
 
 // serialization
@@ -53,7 +53,7 @@ public:
     /**
      * BES public global params
      */
-    bes_global_params_t gbs;
+    bkem_global_params_t gbs;
     
     int max_users() {
         return N;

@@ -96,7 +96,7 @@ public:
     /**
      * BES public global params
      */
-    bes_global_params_t gbs;
+    bkem_global_params_t gbs;
         
     
 private:
@@ -110,7 +110,7 @@ private:
     /**
      * BES encryption scheme
      */
-    bes_system_t sys;
+    bkem_system_t sys;
     
     /**
      * The sender's private key to decrypt all messages

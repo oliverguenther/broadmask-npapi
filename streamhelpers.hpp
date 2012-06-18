@@ -9,7 +9,7 @@
 #include <gmpxx.h>
 
 extern "C" {
-#include "PBC_bes/pbc_bes.h"
+#include "PBC_BKEM/bkem.h"
 }
 
 #define AES_IV_LENGTH 12
@@ -59,24 +59,24 @@ static const char* params =
 "sign0 1";
 
     
-void element_from_stream(element_t el, bes_global_params_t gbs, std::istream& is, int numbytes);
+void element_from_stream(element_t el, bkem_global_params_t gbs, std::istream& is, int numbytes);
 void element_to_stream(element_t el, std::ostream& is);
 
-void ciphertext_from_stream(bes_ciphertext_t *ct, bes_global_params_t gbs, std::istream& is);
-void ciphertext_to_stream(bes_ciphertext_t ct, bes_global_params_t gbs, std::ostream& os);
+void ciphertext_from_stream(bes_ciphertext_t *ct, bkem_global_params_t gbs, std::istream& is);
+void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, std::ostream& os);
 size_t encryption_header_to_bytes(unsigned char** buf, element_t* HDR, int size);
 
 void sk_ciphertext_from_stream(sk_ciphertext_t *skt_ct, std::istream& is);
 void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, std::ostream& os);
 
-void public_key_from_stream(pubkey_t *pubkey_p, bes_global_params_t gbs, std::istream& is, int element_size);
-void public_key_to_stream(pubkey_t pk, bes_global_params_t gbs, std::ostream& os);
+void public_key_from_stream(pubkey_t *pubkey_p, bkem_global_params_t gbs, std::istream& is, int element_size);
+void public_key_to_stream(pubkey_t pk, bkem_global_params_t gbs, std::ostream& os);
 
-void private_key_from_stream(bes_privkey_t *sk, bes_global_params_t gbs, std::istream& is, int element_size);
+void private_key_from_stream(bes_privkey_t *sk, bkem_global_params_t gbs, std::istream& is, int element_size);
 void private_key_to_stream(bes_privkey_t sk, std::ostream& os);
 
 void free_sk_ciphertext(sk_ciphertext_t ct);
-void free_bes_ciphertext(bes_ciphertext_t ct, bes_global_params_t gbs);
+void free_bes_ciphertext(bes_ciphertext_t ct, bkem_global_params_t gbs);
 void free_bes_privkey(bes_privkey_t sk);
 
 //void debug_ciphertext(bes_ciphertext_t ct);
