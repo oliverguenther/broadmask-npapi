@@ -228,24 +228,36 @@ void Profile::unload_instances() {
     loaded_instances.clear();
 }
 
-Profile* Profile::load(std::istream& is) {
+profile_ptr Profile::load(std::istream& is) {
+    profile_ptr p = profile_ptr();
     if (is.bad()) {
         cerr << "[BroadMask] Error Loading Profile: Bad input stream" << endl;
-        return NULL;
-    }    
-    Profile *istore;
+        return p;
+    }
+    
     try {
+        Profile* istore;
         boost::archive::text_iarchive ia(is);
         ia >> istore;
-        return istore;
+        p.reset(istore);
+        return p;
     } catch (exception& e) {
         cerr << "[BroadMask] Error Loading Profile:" << e.what() << endl;
-        return NULL;
+        return p;
     }
 }
 
 
-void Profile::store(Profile* istore, ostream& os) { 
+void Profile::store(profile_ptr p, ostream& os) { 
+    
+    // get profile ptr
+    Profile *istore = p.get();
+    
+    if (!p) {
+        cerr << "Can't store empty profile pointer" << endl;
+        return;
+    }
+    
     
     // update stores
     istore->update_stores();
@@ -259,5 +271,5 @@ void Profile::store(Profile* istore, ostream& os) {
 
     } catch (exception& e) {
         cerr << e.what() << endl;
-    }    
+    }
 }

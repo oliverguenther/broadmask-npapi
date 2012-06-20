@@ -64,7 +64,8 @@ using namespace std;
 namespace fs = boost::filesystem;
 
 #define M_INIT_AND_UNLOCK_PROFILE \
-Profile *p = pm->unlock_profile(m_host->getDOMWindow(), active_profile); \
+profile_ptr profile_sp = pm->unlock_profile(m_host->getDOMWindow(), active_profile); \
+Profile *p = profile_sp.get(); \
 FB::VariantMap result; \
 if (!p) { \
     result["error"] = true; \
@@ -614,8 +615,14 @@ FB::VariantMap BroadmaskAPI::gpg_search_keys(std::string filter, int private_key
 }
 
 
+
 ///////////////////////////////////////////////////////////////////////////////
 /// Profile Management API
+
+
+FB::VariantMap BroadmaskAPI::get_stored_profiles() {
+    return pm->get_stored_profiles();
+}
 
 void BroadmaskAPI::add_profile(std::string profilename, std::string key) {
     pm->add_profile(profilename, key);
@@ -624,9 +631,9 @@ void BroadmaskAPI::add_profile(std::string profilename, std::string key) {
 
 FB::VariantMap BroadmaskAPI::unlock_profile(std::string profilename) {
 
-    Profile *p = pm->unlock_profile(m_host->getDOMWindow(), profilename);
+    profile_ptr profile_sp = pm->unlock_profile(m_host->getDOMWindow(), profilename);
+    Profile *p = profile_sp.get();
     FB::VariantMap result;
-    
     if (!p) {
         result["error"] = true;
         result["error_msg"] = "Could not unlock profile";
@@ -645,9 +652,13 @@ FB::VariantMap BroadmaskAPI::store_profile(std::string profilename) {
 
     M_INIT_AND_UNLOCK_PROFILE
     
-    pm->store_profile(profilename, p);
+    pm->store_profile(profilename, profile_sp);
     result["error"] = false;
     return result;
+}
+
+FB::VariantMap BroadmaskAPI::delete_profile(std::string profilename) {
+    return pm->delete_profile(m_host->getDOMWindow(), profilename);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -704,12 +715,15 @@ m_plugin(plugin), m_host(host) {
     registerMethod("gpg_import_key", make_method(this, &BroadmaskAPI::gpg_import_key));
     registerMethod("gpg_remove_key", make_method(this, &BroadmaskAPI::gpg_remove_key));
     registerMethod("run_benchmark", make_method(this, &BroadmaskAPI::run_benchmark));
-    registerMethod("add_profile", make_method(this, &BroadmaskAPI::add_profile));
+    registerMethod("add_profile", make_method(this, &BroadmaskAPI::add_profile));    
+    registerMethod("get_stored_profiles", make_method(this, &BroadmaskAPI::get_stored_profiles));
     registerMethod("unlock_profile", make_method(this, &BroadmaskAPI::unlock_profile));
-    registerMethod("store_profile", make_method(this, &BroadmaskAPI::store_profile));    
-
+    registerMethod("store_profile", make_method(this, &BroadmaskAPI::store_profile));
+    registerMethod("delete_profile", make_method(this, &BroadmaskAPI::delete_profile));
+    
+    
     // Register active profile property
-    registerProperty("active_profile",  make_property(this, &BroadmaskAPI::get_active_profile, &BroadmaskAPI::set_active_profile));
+    registerProperty("active_profile",  make_property(this, &BroadmaskAPI::get_active_profile));
     
     // Restore ProfileManager
     pm = ProfileManager::unarchive();
@@ -1094,4 +1108,10 @@ bes_encryption_times BroadmaskAPI::run_bes_encryption(std::string sender_instanc
     
     return times;
     
+}
+
+
+BroadmaskAPI::~BroadmaskAPI() {
+    if (pm)
+        delete pm;
 }

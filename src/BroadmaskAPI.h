@@ -25,7 +25,7 @@
 class BroadmaskAPI : public FB::JSAPIAuto {
 public:
     BroadmaskAPI(const BroadmaskPtr& plugin, const FB::BrowserHostPtr& host);
-    virtual ~BroadmaskAPI() {};
+    ~BroadmaskAPI();
     BroadmaskPtr getPlugin();
     
     
@@ -237,21 +237,22 @@ public:
     
     void run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes);
     
+    FB::VariantMap get_stored_profiles();
+    
     FB::VariantMap unlock_profile(std::string);
     
     void add_profile(std::string profilename, std::string key);
     
     FB::VariantMap store_profile(std::string profilename);
     
-    /// Getter, Setter for active_profile property
+    FB::VariantMap delete_profile(std::string profilename);
+
+    
+    /// Getter for active_profile property
     
     std::string get_active_profile() {
-        return active_profile;
+        return pm->get_last_profile();
     }
-    void set_active_profile(const std::string& name) {
-        active_profile = name;
-    }
-    
     
 private:
     BroadmaskWeakPtr m_plugin;

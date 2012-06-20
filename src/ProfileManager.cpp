@@ -51,10 +51,17 @@ namespace fs = boost::filesystem;
 
 static const char* kProfileManagerFile = "bm_profiles";
 static const char* kProfileStorageFile = "profile.data";
-//static const char* kProfileLockFile = "profile.lock";
 
 ProfileManager::ProfileManager() {
     profiles = std::map<std::string, std::string>();
+}
+
+FB::VariantMap ProfileManager::get_stored_profiles() {
+    FB::VariantMap result;
+    for (std::map<std::string, std::string>::iterator it = profiles.begin(); it != profiles.end(); ++it) {
+        result[it->first] = it->second;
+    }
+    return result;
 }
 
 
@@ -102,7 +109,7 @@ bool ProfileManager::has_user_ack(std::string profilename, FB::DOM::WindowPtr wi
 
 bool ProfileManager::is_active_and_valid (std::string profilename) {
     
-    if (!active_profile || !cached_at)
+    if (!active_profile.get() || !cached_at)
         return false; // No profile cached
     
     if (profilename.compare(active_profile->profilename()) != 0)
@@ -113,8 +120,9 @@ bool ProfileManager::is_active_and_valid (std::string profilename) {
     time_t current = time (NULL);    
     if (current > (cached_at + cache_hold)) {
         // Store and invalidate cache
-        store_profile(profilename, active_profile);
-        delete active_profile;
+        store_active();
+        active_profile.reset();
+        make_active(active_profile);
         return false;
     }
     
@@ -124,7 +132,14 @@ bool ProfileManager::is_active_and_valid (std::string profilename) {
 }
 
 
-void ProfileManager::store_profile(std::string profilename, Profile* istore) {
+void ProfileManager::store_profile(std::string profilename, profile_ptr p) {
+    
+    // If profile_ptr empty, nothing to store
+    if (!p.get()) {
+        cout << "[BroadMask] Not storing empty profile_ptr for " << profilename << endl;
+        return;
+    }
+    
     std::map<std::string, std::string>::iterator it = profiles.find(profilename);
     
     if (it == profiles.end())
@@ -136,7 +151,7 @@ void ProfileManager::store_profile(std::string profilename, Profile* istore) {
     
     
     std::stringstream os;
-    Profile::store(istore, os);
+    Profile::store(p, os);
     
     std::string keyid = it->second;
     // Encode Profile as Base64, as Instances are 
@@ -152,12 +167,23 @@ void ProfileManager::store_profile(std::string profilename, Profile* istore) {
     
 }
 
+void ProfileManager::store_active() {
+    Profile *p = active_profile.get();
+    
+    // Store only if active
+    if (p)
+        store_profile(p->profilename(), active_profile);    
+}
 
-Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string profilename) {
+
+profile_ptr ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string profilename) {
+    
+    
+    profile_ptr p = profile_ptr();
     
     // Request permission from user if domain unknown
     if (!has_user_ack(profilename, window))
-        return NULL;
+        return p;
     
     // if Profile matches active profile
     if (is_active_and_valid(profilename))
@@ -166,8 +192,7 @@ Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string p
     std::map<std::string, std::string>::iterator it = profiles.find(profilename);
     
     if (it == profiles.end())
-        // No such profile
-        return NULL;
+        return p; // No such profile
     
     fs::path profilepath = broadmask_root();
     profilepath /= profilename;
@@ -177,18 +202,16 @@ Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string p
     // then create it and return new storage
     if (!fs::is_directory(profilepath) || !fs::is_regular_file(datapath)) {
         fs::create_directories(profilepath);
-        cached_at = time(NULL);
-        active_profile = new Profile(profilename);
-        return active_profile;   
+        boost::shared_ptr<Profile> p(new Profile(profilename));
+        return make_active(p);
     }
     
     // Test if file is empty, in which case delete it and return new storage
     if (fs::is_empty(datapath)) {
         cout << "Found empty profile.data for profile " << profilename << endl;
         fs::remove(datapath);
-        cached_at = time(NULL);
-        active_profile = new Profile(profilename);
-        return active_profile;
+        boost::shared_ptr<Profile> p(new Profile(profilename));
+        return make_active(p);
     }
     
     // Read file
@@ -197,18 +220,59 @@ Profile* ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::string p
     if (dec_result.error) {
         cerr << "[BroadMask] Could not load profile " << profilename << ". Error was: "
         << dec_result.error_msg << endl;
-        return NULL;
+        p.reset();
+        return p;
     }
     
     // Use recovered plaintext to load Profile
     std::string recovered = base64_decode(std::string(dec_result.result));
     std::istringstream is(recovered);
     
-    active_profile = Profile::load(is);
     
-    if (active_profile)
-        cached_at = time(NULL);
+    p = Profile::load(is);
+    return make_active(p);
+}
 
+FB::VariantMap ProfileManager::delete_profile(FB::DOM::WindowPtr window, std::string profilename) {
+    profile_ptr p = unlock_profile(window, profilename);
+    Profile *istore = p.get();
+    
+    FB::VariantMap result; 
+    if (!istore) {
+        result["error"] = true;
+        result["error_msg"] = "Could not unlock profile";
+    } else {
+        // delete profile entry
+        profiles.erase(profilename);
+        // delete file itself
+        fs::path profilepath = broadmask_root();
+        profilepath /= profilename;
+        fs::remove_all(profilepath);
+        // p == active_profile
+        p.reset();
+        make_active(p);
+        
+        result["error"] = false;
+        
+        ProfileManager::archive(this);
+    }
+    
+    return result;
+}
+
+profile_ptr ProfileManager::make_active(profile_ptr p) {  
+    Profile *istore = p.get();
+    if (istore) {
+        cached_at = time(NULL);
+        last_profile = istore->profilename();
+        active_profile = p;
+    } else {
+        // If p is null, removes current active profile
+        active_profile.reset();
+        cached_at = NULL;
+        last_profile.clear();
+    }
+    
     return active_profile;
 }
 
@@ -248,5 +312,13 @@ ProfileManager* ProfileManager::unarchive() {
 }
 
 ProfileManager::~ProfileManager() {
+    // Store active profile, if any
+    store_active();
+    
+    // Archive this ProfileManager to disk
+    ProfileManager::archive(this);
+    
+    
     profiles.clear();
+    active_profile.reset();
 }

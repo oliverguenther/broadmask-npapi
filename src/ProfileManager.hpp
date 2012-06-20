@@ -24,14 +24,16 @@
 #ifndef H_PROFILE_MANAGER
 #define H_PROFILE_MANAGER
 
-// serialization
+#include "Profile.hpp"
+#include <map>
+
+// Boost serialization
 #include <boost/archive/text_oarchive.hpp>
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/map.hpp>
 
-
-#include "Profile.hpp"
-#include <map>
+// Boost Shared pointers
+#include <boost/shared_ptr.hpp>
 
 
 class ProfileManager  {
@@ -47,16 +49,34 @@ public:
      */    
     FB::VariantMap get_stored_profiles();
     
+    std::string get_last_profile() {
+        return last_profile;
+    }
+    
     
     /**
      * @fn ProfileManager::unlock_profile
      * @brief Unlocks a profile by decrypting the profile.data store
      * using the associated PGP key
-     * @return A pointer to the unlocked Profile, or NULL
+     * @return A profile_ptr to either the active profile or an empty profile_ptr if 
+     * the unlock was unsuccessful
      */    
-    Profile* unlock_profile(FB::DOM::WindowPtr window, std::string profilename);
+    profile_ptr unlock_profile(FB::DOM::WindowPtr window, std::string profilename);
     
-    void store_profile(std::string profilename, Profile* istore);
+    /**
+     * @fn ProfileManager::store_profile
+     * @brief Stores the given profile to disk
+     * @param profilename the profile name
+     * @param istore a profile_ptr to a profile to store (i.e. the active profile)
+     */   
+    void store_profile(std::string profilename, profile_ptr istore);
+    
+    /**
+     * @fn ProfileManager::store_active
+     * @brief Stores the active profile to disk (if any). 
+     * Used before destructing the ProfileManager object, to store the latest state
+     */   
+    void store_active();
        
     void add_profile(std::string name, std::string keyid) {
         
@@ -65,6 +85,8 @@ public:
             profiles.insert(std::pair<std::string, std::string>(name, keyid));
         }
     }
+    
+    FB::VariantMap delete_profile(FB::DOM::WindowPtr window, std::string profilename);
     
     
     static void archive(ProfileManager *p);
@@ -77,7 +99,10 @@ private:
     std::map<std::string, std::string> profiles;
     
     // Caches previously used profile
-    Profile *active_profile;
+    profile_ptr active_profile;
+    
+    // Caches the last profile name
+    std::string last_profile;
     
     // Records the time when the active profile was cached
     time_t cached_at;
@@ -92,6 +117,15 @@ private:
      * @return A pointer to the unlocked Profile, or NULL
      */   
     bool is_active_and_valid (std::string profilename);
+    
+    
+    /**
+     * @fn ProfileManager::make_active
+     * @brief Set this profile as active_profile, set the cached_at and
+     * last_profile string
+     * @return a profile_ptr to the internal active_profile shared_ptr
+     */
+    profile_ptr make_active(profile_ptr p);
     
     /**
      * @fn ProfileManager::has_user_ack
@@ -110,6 +144,7 @@ private:
     {
         ar & profiles;
         ar & authorized_domains;
+        ar & last_profile;
     }
 };
 

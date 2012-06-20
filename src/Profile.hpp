@@ -37,8 +37,11 @@
 #include "SK_Instance.hpp"
 
 // ptr
+#include <boost/shared_ptr.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include <boost/ptr_container/serialize_ptr_map.hpp>
+class Profile;
+typedef boost::shared_ptr<Profile> profile_ptr;
 
 // filesystem
 #include <boost/filesystem/operations.hpp>
@@ -286,16 +289,16 @@ public:
      * @brief Restore Profile from ASCII using Boost serialization
      * @param is input stream containing a previously stored Profile from
      * Profile::store
-     * @return Pointer to the loaded Profile* or NULL if load failed
+     * @return Pointer to the loaded Profile or NULL if load failed
      */
-    static Profile* load(istream& is);
+    static profile_ptr load(istream& is);
     
     /**
      * @fn Profile::store
      * @brief Serialize Profile to ASCII using Boost serialization
      * @param os output stream to write to
      */
-    static void store(Profile* istore, ostream& os);
+    static void store(profile_ptr istore, ostream& os);
     
     
     /**
