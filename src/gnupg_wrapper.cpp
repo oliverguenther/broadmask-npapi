@@ -139,8 +139,8 @@ FB::VariantMap gpgme_search_key(std::string pattern, int secret_keys_only) {
     return op_result;
 }
 
-FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id) {
-    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str(), 1, 1);
+FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id, std::string& sign_key_id) {
+    gpgme_result r = gpgme_encrypt(data.c_str(), key_id.c_str(), 1, sign_key_id.c_str(), 1);
     return result_to_variant(r);
 }
 
@@ -151,7 +151,7 @@ FB::VariantMap gpgme_decrypt(std::string& data) {
 }
 
 
-gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int armored) {
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, const char *sign_key_id, int armored) {
     gpgme_ctx_t ctx = create_gpg_context();
     
     // Armoring is enabled by default
@@ -180,7 +180,7 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int a
     }
     
     gpgme_release (ctx);
-    gpgme_result enc_result = gpgme_encrypt_io(in, out, key_id, sign);
+    gpgme_result enc_result = gpgme_encrypt_io(in, out, key_id, sign, sign_key_id);
     
     if (enc_result.error)
         return enc_result;
@@ -208,7 +208,7 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int a
 }
 
 
-gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign) {
+gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign, const char* sign_key_id) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
     gpgme_key_t key[2] = { NULL, NULL };
@@ -220,6 +220,30 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
                          &key[0], 0);
     if (err) {
         return gpgme_error(err);
+    }
+    
+    // Clear standard keys, use profile sign key (if signing)
+    
+    if (sign && sign_key_id) {
+        // clear previous signers
+        //gpgme_signers_clear(ctx);
+        
+        gpgme_key_t sign_key;
+        
+        // Get signing key
+        err = gpgme_get_key (ctx, sign_key_id,
+                             &sign_key, 0);
+        if (err) {
+            return gpgme_error(err);
+        }   
+        
+        // Add key as signers key 
+        err = gpgme_signers_add(ctx, sign_key);
+        if (err) {
+            return gpgme_error(err);
+        }   
+        
+        gpgme_key_unref(sign_key);
     }
     
     if (sign)
@@ -253,7 +277,7 @@ gpgme_result gpgme_encrypt_tofile(const char *data,
         
     
     // Encrypt without armoring, do not sign
-    gpgme_result enc_result = gpgme_encrypt(data, key_id, 0, 0);
+    gpgme_result enc_result = gpgme_encrypt(data, key_id, 0, NULL, 0);
     
     if (enc_result.error)
         return enc_result;

@@ -29,15 +29,14 @@
 #include <DOM/Window.h>
 namespace fs = boost::filesystem;
 
-Profile::Profile(std::string profile_name) {
+Profile::Profile(std::string profile_name, std::string key_id) {
     name = profile_name;
-    ustore = new UserStorage();
+    pgp_keyid = key_id;
 }
 
 Profile::~Profile() {
     instances.clear();
     loaded_instances.clear();
-    delete ustore;
 }
 
 FB::VariantMap Profile::get_stored_instances() {
@@ -227,6 +226,60 @@ void Profile::update_stores() {
 void Profile::unload_instances() {
     loaded_instances.clear();
 }
+
+
+////////////////////////////////////////////////////////////////////////////////////////////
+// UserStorage
+FB::VariantMap Profile::associatedKeys() {
+    FB::VariantMap keys;
+    for (map<string,string>::iterator it = keymap.begin(); it != keymap.end(); ++it) {
+        keys[it->first] = it->second;
+    }
+    
+    return keys;
+}
+
+
+
+void Profile::setPGPKey(string& user_id, string& keyid) {
+    keymap.insert(pair<string,string>(user_id, keyid));
+}
+
+FB::VariantMap Profile::getPGPKey(string& user_id) {
+    FB::VariantMap result;
+    result["userid"] = user_id;
+    
+    map<string,string>::iterator it = keymap.find(user_id);
+    
+    if (it != keymap.end()) {
+        result["keyid"] = it->second;
+        result["found"] = true;
+    } else {
+        result["found"] = false;
+    }
+    
+    return result;    
+}
+
+FB::VariantMap Profile::encrypt_for(std::string& data, std::string& user_id) {
+    std::map<std::string, std::string>::iterator it = keymap.find(user_id);
+    
+    if (it != keymap.end()) {
+        return gpgme_encrypt_with(data, it->second, pgp_keyid);
+    } else {
+        FB::VariantMap output;
+        output["error"] = true;
+        output["key_missing"] = true;
+        output["error_msg"] = "User has no corresponding key";
+        return output;
+    }
+    
+}
+
+void Profile::removePGPKey(string& user_id) {
+    keymap.erase(user_id);
+}
+
 
 profile_ptr Profile::load(std::istream& is) {
     profile_ptr p = profile_ptr();

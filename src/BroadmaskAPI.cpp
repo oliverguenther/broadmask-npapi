@@ -17,6 +17,9 @@
 #include <boost/static_assert.hpp>
 #include <boost/thread.hpp>
 
+#include <boost/format.hpp>
+using boost::format;
+
 // FB JSAPI
 #include "JSObject.h"
 #include "variant_list.h"
@@ -69,7 +72,8 @@ Profile *p = profile_sp.get(); \
 FB::VariantMap result; \
 if (!p) { \
     result["error"] = true; \
-    result["error_msg"] = "Could not unlock profile"; \
+    format fmter = format("Could not unlock profile %1%") % active_profile; \
+    result["error_msg"] = fmter.str(); \
     return result; \
 } \
 
@@ -140,7 +144,8 @@ FB::VariantMap BroadmaskAPI::add_member(std::string gid, std::string id) {
     
     if (!instance) {
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
     
@@ -159,7 +164,8 @@ FB::VariantMap BroadmaskAPI::add_members(std::string gid, std::vector<std::strin
     
     if (!instance) {
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
     
@@ -183,7 +189,8 @@ FB::VariantMap BroadmaskAPI::remove_member(std::string gid, std::string id) {
     BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
     if (!bci) {
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
     
@@ -201,13 +208,15 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
     
     if (!instance) {
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
 
     std::map<std::string, int> members = instance->instance_members();
     for (std::map<std::string, int>::iterator it = members.begin();
          it != members.end(); ++it) {
+        if (it->first != "myself")
         result[it->first] = it->second;
     }
     
@@ -225,7 +234,8 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
     BES_sender *sender = dynamic_cast<BES_sender*>(p->load_instance(gid));
     if (!sender) {
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         
         instance_types type = p->instance_type(gid);
         if (type != ERR_NO_INSTANCE)
@@ -249,10 +259,9 @@ FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
     SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
     
     if (!ski) {
-        std::stringstream ss;
-        ss << "SK Instance " << gid << " not found. " << endl;
         result["error"] = true;
-        result["error_msg"] = ss.str();
+        format fmter = format("BES-SK Instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
     
@@ -271,19 +280,17 @@ FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
     BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
     
     if (!bci) {
-        std::stringstream ss;
-        ss << "BES Sender instance " << gid << " not found. " << endl;
         result["error"] = true;
-        result["error_msg"] = ss.str();
+        format fmter = format("BM-BE instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
     }
     
     bes_privkey_t sk = NULL;
     bci->get_private_key(&sk, id);
     if (!sk) {
-        std::stringstream ss;
-        ss << "Couldn't retrieve private key " << id << endl;
         result["error"] = true;
-        result["error_msg"] = ss.str();
+        format fmter = format("BM-BE instance %2% Could not retrieve private key for user %1%") % id % gid;
+        result["error_msg"] = fmter.str();
     }
     
     std::stringstream oss;
@@ -311,7 +318,8 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
             BES_sender *instance = dynamic_cast<BES_sender*>(p->load_instance(gid));
             if (!instance) {
                 result["error"] = true;
-                result["error_msg"] = "Couldn't load sender instance";
+                format fmter = format("Could not load BM-BE sender instance with group id'%1%'") % gid;
+                result["error_msg"] = fmter.str();
                 return result;
             }
             std::map<std::string, int> members = instance->instance_members();
@@ -326,7 +334,8 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
         case BROADMASK_INSTANCE_BES_RECEIVER:
         {
             result["error"] = true;
-            result["error_msg"] = "Can't encrypt with a receiver instance";
+            format fmter = format("Encryption with BM-BE receiver instance '%1%' not possible") % gid;
+            result["error_msg"] = fmter.str();
             break;
         }
         case BROADMASK_INSTANCE_SK:
@@ -337,7 +346,8 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
         default:
         {
             result["error"] = true;
-            result["error_msg"] = "Unknown instance";
+            format fmter = format("Instance with gid '%1%' not found") % gid;
+            result["error_msg"] = fmter.str();
             break;
         }
     }
@@ -366,7 +376,8 @@ FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool
         default:
         {
             result["error"] = true;
-            result["error_msg"] = "Instance not found";
+            format fmter = format("Instance with gid '%1%' not found") % gid;
+            result["error_msg"] = fmter.str();
             break;
         }
     }
@@ -383,7 +394,8 @@ FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<
     
     if (!bci) {
         result["error"] = true;
-        result["error_msg"] = "Sender Instance not found";
+        format fmter = format("BM-BE sender instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
 
@@ -418,7 +430,8 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
     if (type != BROADMASK_INSTANCE_BES_SENDER && type != BROADMASK_INSTANCE_BES_RECEIVER) {
         FB::VariantMap result;
         result["error"] = true;
-        result["error_msg"] = "BES instance not found";
+        format fmter = format("BM-BE instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
         
     }
@@ -459,7 +472,8 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
         default:
         {
             result["error"] = true;
-            result["error_msg"] = "BES instance not found";
+            format fmter = format("BM-BE instance with gid '%1%' not found") % gid;
+            result["error_msg"] = fmter.str();
             break;
         }
     }
@@ -473,9 +487,9 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
     SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
 
     if (!ski) {
-        cout << "Shared Instance " << gid << " not found ";
         result["error"] = true;
-        result["error_msg"] = "Instance not found";
+        format fmter = format("BM-SK instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
     
@@ -506,7 +520,8 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
     SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
     if (!ski) {
         result["error"] = true;
-        result["error_msg"] = "Shared Instance not found";
+        format fmter = format("BM-SK instance with gid '%1%' not found") % gid;
+        result["error_msg"] = fmter.str();
         return result;
     }
 
@@ -540,31 +555,31 @@ FB::VariantMap BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string ke
     
     M_INIT_AND_UNLOCK_PROFILE
 
-    p->get_ustore()->setPGPKey(user_id, key_id);
+    p->setPGPKey(user_id, key_id);
     result["error"] = false;
     return result;
 }
 
 FB::VariantMap BroadmaskAPI::gpg_get_keyid(std::string user_id) {
     M_INIT_AND_UNLOCK_PROFILE
-    return p->get_ustore()->getPGPKey(user_id);
+    return p->getPGPKey(user_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_remove_key(std::string user_id) {
     M_INIT_AND_UNLOCK_PROFILE
-    p->get_ustore()->removePGPKey(user_id);
+    p->removePGPKey(user_id);
     result["error"] = false;
     return result;
 }
 
 FB::VariantMap BroadmaskAPI::gpg_encrypt_for(std::string data, std::string user_id) {
     M_INIT_AND_UNLOCK_PROFILE
-    return p->get_ustore()->encrypt_for(data, user_id);
+    return p->encrypt_for(data, user_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_associatedKeys() {
     M_INIT_AND_UNLOCK_PROFILE
-    return p->get_ustore()->associatedKeys();
+    return p->associatedKeys();
 }
 
 FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysid) {
@@ -582,12 +597,14 @@ FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysi
             return gpg_encrypt_for(sk_str, sysid);
         } else {
             result["error"] = true;
-            result["error_msg"] = "No SK for userid";
+            format fmter = format("No user %1% exists for instance %2%") % sysid % gid;
+            result["error_msg"] = fmter.str();
             return result;
         }
     } catch (std::exception& e) {
         result["error"] = true;
-        result["error_msg"] = e.what();
+        format fmter = format("Cannot retrieve member sk. Error was: %1%") % e.what();
+        result["error_msg"] = fmter.str();
         return result;
     }
 
@@ -595,8 +612,8 @@ FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysi
 
 ///////////////////////////////////////////////////////////////////////////////
 /// GPGME wrapper, for generic use
-FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id) {
-    return gpgme_encrypt_with(data, key_id);
+FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id, std::string sign_key_id) {
+    return gpgme_encrypt_with(data, key_id, sign_key_id);
 }
 
 FB::VariantMap BroadmaskAPI::gpg_decrypt(std::string data) {
@@ -636,7 +653,8 @@ FB::VariantMap BroadmaskAPI::unlock_profile(std::string profilename) {
     FB::VariantMap result;
     if (!p) {
         result["error"] = true;
-        result["error_msg"] = "Could not unlock profile";
+        format fmter = format("Could not unlock profile named '%1%'") % profilename;
+        result["error_msg"] = fmter.str();
         return result;
     }
 

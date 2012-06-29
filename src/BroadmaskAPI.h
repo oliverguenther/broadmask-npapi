@@ -185,7 +185,7 @@ public:
      * @param key_id fingerprint of keyid of PGP key to encrypt for
      * @return FB::VariantMap containing GPG-Message
      */
-    FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id);
+    FB::VariantMap gpg_encrypt_with(std::string data, std::string key_id, std::string sign_key_id);
     
     /**
      * @fn BroadmaskAPI::gpg_decrypt

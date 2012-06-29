@@ -47,10 +47,11 @@ typedef struct {
  * @param data Data to encrypt
  * @param key_id key identifier or fingerprint
  * @param sign set != 0 to use sign operation
+ * @param sign_key_id set != NULL to use this key as signer key
  * @param sign set != 0 to use text mode with armoring
  * @return gpgme_result struct
  */
-gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int armor);
+gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, const char *sign_key_id, int armor);
 
 /**
  * @fn gpgme_encrypt_input
@@ -62,7 +63,7 @@ gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, int a
  * @param sign set != 0 to use sign operation
  * @return gpgme_result struct
  */
-gpgme_result gpgme_encrypt_io(gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign);
+gpgme_result gpgme_encrypt_io(gpgme_data_t in, gpgme_data_t out, const char* key_id, int sign, const char *sign_key_id);
 
 
 /**
@@ -105,9 +106,10 @@ gpgme_result gpgme_decrypt_file (const char *path);
  * @brief Tries to encrypt data with PGP key key_id
  * @param data Data to encrypt
  * @param key_id key identifier or fingerprint
+ * @parap sign_key_id Key to sign with
  * @return JS object with op results
  */
-FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id);
+FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id, std::string& sign_key_id);
 
 /**
  * @fn gpgme_decrypt

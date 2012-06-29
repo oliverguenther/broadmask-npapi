@@ -116,7 +116,7 @@ bool ProfileManager::is_active_and_valid (std::string profilename) {
         return false; // Different profile cached
     
     // compare cache time
-    int cache_hold = 1800; // 30 minutes
+    int cache_hold = 7200; // 2 hours
     time_t current = time (NULL);    
     if (current > (cached_at + cache_hold)) {
         // Store and invalidate cache
@@ -202,7 +202,7 @@ profile_ptr ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::strin
     // then create it and return new storage
     if (!fs::is_directory(profilepath) || !fs::is_regular_file(datapath)) {
         fs::create_directories(profilepath);
-        boost::shared_ptr<Profile> p(new Profile(profilename));
+        boost::shared_ptr<Profile> p(new Profile(profilename, it->second));
         return make_active(p);
     }
     
@@ -210,7 +210,7 @@ profile_ptr ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::strin
     if (fs::is_empty(datapath)) {
         cout << "Found empty profile.data for profile " << profilename << endl;
         fs::remove(datapath);
-        boost::shared_ptr<Profile> p(new Profile(profilename));
+        boost::shared_ptr<Profile> p(new Profile(profilename, it->second));
         return make_active(p);
     }
     
