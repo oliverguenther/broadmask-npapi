@@ -4,3 +4,6 @@
 [submodule "src/PBC_BKEM"]
 	path = src/PBC_BKEM
 	url = https://github.com/oliverguenther/PBC_BKEM.git
+[submodule "src/BDEM"]
+	path = src/BDEM
+	url = https://github.com/oliverguenther/BDEM

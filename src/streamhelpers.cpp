@@ -6,6 +6,7 @@
 #include <cryptopp/aes.h>
 using CryptoPP::AES;
 
+#include "BDEM/ae_wrapper.hpp"
 
 using namespace std;
 
@@ -26,33 +27,34 @@ void element_to_stream(element_t el, std::ostream& os) {
 }
 
 void ciphertext_from_stream(bes_ciphertext_t* ct, bkem_global_params_t gbs, istream& is) {
-    bes_ciphertext_t cipher = (bes_ciphertext_t) malloc(sizeof(bes_ciphertext_s));
+    bes_ciphertext_t cipher = new bes_ciphertext_s;
+    cipher->ae_ct = new AE_Ciphertext;
     
     int version, element_size;
     
     is >> version;
     is >> cipher->num_receivers;
-    is >> cipher->ct_length;
+    is >> cipher->ae_ct->ct_len;
     is >> element_size;
     
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    cipher->receivers = (int*) malloc(cipher->num_receivers * sizeof(int));
+    cipher->receivers = new int[cipher->num_receivers];
     
     for (int i = 0; i < cipher->num_receivers; ++i) {
         is >> cipher->receivers[i];
     }
     
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-    cipher->HDR = (element_t*) pbc_malloc((gbs->A + 1) * sizeof(element_t));
+    cipher->HDR = new element_t[gbs->A + 1];
     for (int i = 0; i < (gbs->A + 1); ++i) {
         element_from_stream(cipher->HDR[i], gbs, is, element_size);
     }
     
-    cipher->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
-    is.read(reinterpret_cast<char*>(cipher->iv), AES_IV_LENGTH);
+    cipher->ae_ct->iv = new unsigned char[AE_IV_LENGTH];
+    is.read(reinterpret_cast<char*>(cipher->ae_ct->iv), AE_IV_LENGTH);
     
-    cipher->ct = (unsigned char*) malloc(cipher->ct_length * sizeof(unsigned char));
-    is.read(reinterpret_cast<char*>(cipher->ct), cipher->ct_length);
+    cipher->ae_ct->ct = new unsigned char[cipher->ae_ct->ct_len];
+    is.read(reinterpret_cast<char*>(cipher->ae_ct->ct), cipher->ae_ct->ct_len);
 
     *ct = cipher;
 
@@ -80,7 +82,7 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, ostream
     
     os << version << " ";
     os << ct->num_receivers << " ";
-    os << ct->ct_length << " ";
+    os << ct->ae_ct->ct_len << " ";
     os << element_size << "\n";
 
        
@@ -96,16 +98,16 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, ostream
     }
     
     // IV
-    os.write(reinterpret_cast<char*>(ct->iv), AES_IV_LENGTH);
+    os.write(reinterpret_cast<char*>(ct->ae_ct->iv), AE_IV_LENGTH);
     
     // CT
-    os.write(reinterpret_cast<char*>(ct->ct), ct->ct_length);
+    os.write(reinterpret_cast<char*>(ct->ae_ct->ct), ct->ae_ct->ct_len);
 }
 
 //void debug_ciphertext(bes_ciphertext_t ct) {
 //    cout << "*** CIPHERTEXT DEBUG ***" << endl;
 //    cout << "Receivers" << ct->num_receivers << endl;
-//    cout << "CT length" << ct->ct_length << endl << endl;
+//    cout << "CT length" << ct->ae_ct->ct_len << endl << endl;
 //    
 //    cout << "RECEIVERS: ";
 //    for (int i = 0; i < ct->num_receivers; ++i) {
@@ -114,15 +116,15 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, ostream
 //    cout << endl << endl;
 //    
 //    cout << "IV ";
-//    for (int i = 0; i < AES_IV_LENGTH; ++i) {
-//        cout << hex << (int) ct->iv[i] << " ";
+//    for (int i = 0; i < AE_IV_LENGTH; ++i) {
+//        cout << hex << (int) ct->ae_ct->iv[i] << " ";
 //    }
 //    
 //    cout << endl << endl;
 //
 //    cout << "CT ";
-//    for (int i = 0; i < ct->ct_length; ++i) {
-//        cout << hex << (int) ct->ct[i] << dec << " ";
+//    for (int i = 0; i < ct->ae_ct->ct_len; ++i) {
+//        cout << hex << (int) ct->ae_ct->ct[i] << dec << " ";
 //    }
 //    
 //    cout << endl << " *** END ** " << endl;
@@ -141,37 +143,37 @@ void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, ostream
 //    
 //}
 
-void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, ostream& os) {
+void sk_ciphertext_to_stream(AE_Ciphertext* sk_ct, ostream& os) {
     int version = 0;
     os << version << " ";
-    os << sk_ct->ct_length << "\n";
+    os << sk_ct->ct_len << "\n";
     
     // IV
-    os.write(reinterpret_cast<char*>(sk_ct->iv), AES_IV_LENGTH);
+    os.write(reinterpret_cast<char*>(sk_ct->iv), AE_IV_LENGTH);
     
     
     // CT
-    os.write(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_length);
+    os.write(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_len);
 
     
 }
 
-void sk_ciphertext_from_stream(sk_ciphertext_t *ctptr, istream& is) {
+void sk_ciphertext_from_stream(AE_Ciphertext **ctptr, istream& is) {
     int version;
     
-    sk_ciphertext_t sk_ct = (sk_ciphertext_t) malloc(sizeof(struct sk_ciphertext_s));
+    AE_Ciphertext* sk_ct = new AE_Ciphertext;
     
     is >> version;
-    is >> sk_ct->ct_length;
+    is >> sk_ct->ct_len;
     is.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
     // IV
-    sk_ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
-    is.read(reinterpret_cast<char*>(sk_ct->iv), AES_IV_LENGTH);
+    sk_ct->iv = new unsigned char[AE_IV_LENGTH];
+    is.read(reinterpret_cast<char*>(sk_ct->iv), AE_IV_LENGTH);
 
     // CT
-    sk_ct->ct = (unsigned char*) malloc(sk_ct->ct_length * sizeof(unsigned char));
-    is.read(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_length);
+    sk_ct->ct = new unsigned char[sk_ct->ct_len];
+    is.read(reinterpret_cast<char*>(sk_ct->ct), sk_ct->ct_len);
 
     *ctptr = sk_ct;
 }
@@ -236,30 +238,20 @@ void private_key_to_stream(bes_privkey_t sk, std::ostream& os) {
 }
 
 
-void free_sk_ciphertext(sk_ciphertext_t ct) {
-    if (!ct)
-        return;
-    
-    free(ct->iv);
-    free(ct->ct);
-    free(ct);
-}
-
 void free_bes_ciphertext(bes_ciphertext_t ct, bkem_global_params_t gbs) {
     if (!ct || !gbs)
         return;
     
     // receivers
-    free(ct->receivers);
+    delete ct->receivers;
     
     // HDR
     for (int i = 0; i < (gbs->A + 1); ++i) {
         element_clear(ct->HDR[i]);
     }
     
-    free(ct->iv);
-    free(ct->ct);
-    free(ct);
+    delete ct->ae_ct;
+    delete ct;
     
 }
 

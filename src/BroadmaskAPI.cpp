@@ -140,7 +140,7 @@ FB::VariantMap BroadmaskAPI::add_member(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE    
     
-    Instance *instance = p->load_unknown(gid);
+    Instance *instance = p->load_instance(gid);
     
     if (!instance) {
         result["error"] = true;
@@ -160,7 +160,7 @@ FB::VariantMap BroadmaskAPI::add_members(std::string gid, std::vector<std::strin
     
     M_INIT_AND_UNLOCK_PROFILE
 
-    Instance *instance = p->load_unknown(gid);    
+    Instance *instance = p->load_instance(gid);    
     
     if (!instance) {
         result["error"] = true;
@@ -204,7 +204,7 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
 
-    Instance* instance = p->load_unknown(gid);
+    Instance* instance = p->load_instance(gid);
     
     if (!instance) {
         result["error"] = true;
@@ -283,19 +283,21 @@ FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
         result["error"] = true;
         format fmter = format("BM-BE instance with gid '%1%' not found") % gid;
         result["error_msg"] = fmter.str();
+        return result;
     }
     
     bes_privkey_t sk = NULL;
     bci->get_private_key(&sk, id);
     if (!sk) {
         result["error"] = true;
-        format fmter = format("BM-BE instance %2% Could not retrieve private key for user %1%") % id % gid;
+        format fmter = format("BM-BE instance %2%. Could not retrieve private key for user %1%") % id % gid;
         result["error_msg"] = fmter.str();
+        return result;
     }
     
     std::stringstream oss;
     private_key_to_stream(sk, oss);
-    free_bes_privkey(sk);
+    delete sk;
     result["result"] = base64_encode(oss.str());
     result["error"] = false;
     
@@ -538,11 +540,11 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
         sk_ct_str = std::string(reinterpret_cast<char*>(ct_unwrapped.data()), ct_unwrapped.size());
  
     }
-    sk_ciphertext_t ct;
+    AE_Ciphertext* ct;
     stringstream ss(sk_ct_str);
     sk_ciphertext_from_stream(&ct, ss);
     result = ski->decrypt(ct);
-    free_sk_ciphertext(ct);
+    delete ct;
     return result;
 }
  

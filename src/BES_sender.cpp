@@ -10,39 +10,13 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
+// Include AE scheme wrapper
+#include "BDEM/ae_wrapper.hpp"
 // hkdf scheme, rfc5869
 #include <cryptopp/hmac.h>
 #include <cryptopp/sha.h>
 #include "hkdf.h"
 
-#include <cryptopp/filters.h>
-using CryptoPP::Redirector;
-using CryptoPP::StringSink;
-using CryptoPP::StringSource;
-using CryptoPP::AuthenticatedEncryptionFilter;
-using CryptoPP::AuthenticatedDecryptionFilter;
-
-#include <cryptopp/aes.h>
-using CryptoPP::AES;
-
-#include <cryptopp/gcm.h>
-using CryptoPP::GCM;
-using CryptoPP::GCM_TablesOption;
-
-#include <cryptopp/cryptlib.h>
-using CryptoPP::Exception;
-using CryptoPP::BufferedTransformation;
-using CryptoPP::AuthenticatedSymmetricCipher;
-using CryptoPP::DEFAULT_CHANNEL;
-using CryptoPP::AAD_CHANNEL;
-
-#include <cryptopp/osrng.h>
-using CryptoPP::AutoSeededRandomPool;
-
-
-#define AES_IV_LENGTH 12
-#define TAG_SIZE 16
-#define AES_DEFAULT_KEYSIZE 32
 #define SENDER_MEMBER_ID "myself"
 
 #include "utils.h"
@@ -134,7 +108,7 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
 void BES_sender::public_params_to_stream(std::ostream& os) {
     int element_size = element_length_in_bytes(sys->PK->g);
     os << element_size << " ";
-    os << AES_DEFAULT_KEYSIZE << "\n";
+    os << AE_KEY_LENGTH << "\n";
     
     public_key_to_stream(sys->PK, gbs, os);
 }
@@ -142,26 +116,26 @@ void BES_sender::public_params_to_stream(std::ostream& os) {
 
 void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& pdata) {
     
-    bes_ciphertext_t ct = (bes_ciphertext_t) malloc(sizeof(struct bes_ciphertext_s));
+    bes_ciphertext_t ct = new bes_ciphertext_s;
     
     // Ensure myself is added to S
     std::vector<std::string> S (receivers);
-    std::vector<std::string>::iterator it = std::find(S.begin(), S.end(), "myself");
+    std::vector<std::string>::iterator it = std::find(S.begin(), S.end(), SENDER_MEMBER_ID);
     if (it == S.end())
         S.push_back(SENDER_MEMBER_ID);
     
     // Receivers
-    ct->num_receivers = S.size();
-    
-    ct->receivers = (int *) malloc(ct->num_receivers * sizeof(int));
+    ct->num_receivers = S.size();    
+    ct->receivers = new int[ct->num_receivers];
         
     int i = 0;
     for (std::vector<string>::const_iterator it = S.begin(); it != S.end(); ++it) {
         int id = member_id(*it);
         if (id == -1) {
             cout << "Member " << *it << " is not member of this group" << endl;
-            free(ct->receivers);
-            free(ct);
+            delete ct->receivers;
+            delete ct;
+            
             return;
         }
         ct->receivers[i] = id;
@@ -172,61 +146,41 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
     keypair_t keypair;
     get_encryption_key(&keypair, ct->receivers, ct->num_receivers, sys, gbs);
     
-
-    // HDR
-    ct->HDR = (element_t*) pbc_malloc( (gbs->A+1) * sizeof(element_t));
+    // Copy public header
+    ct->HDR = new element_t[gbs->A+1];
     memcpy(ct->HDR, keypair->HDR, (gbs->A+1) * sizeof(element_t));
     
     // Key derivation
-    unsigned char sym_key[AES_DEFAULT_KEYSIZE];
-    derivate_encryption_key(sym_key, AES_DEFAULT_KEYSIZE, keypair->K);
+    unsigned char sym_key[AE_KEY_LENGTH];
+    derivate_encryption_key(sym_key, AE_KEY_LENGTH, keypair->K);
     
-    // AES encrpytion    
-
-    // IV
-    ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
-    AutoSeededRandomPool prng;
-	prng.GenerateBlock(ct->iv, AES_IV_LENGTH);
-
+    
+    // AES encrpytion
+    AE_Plaintext* pts = new AE_Plaintext;
+    AE_Plaintext* header = new AE_Plaintext;
+    
+    pts->plaintext = new unsigned char[pdata.size()];
+    memcpy(pts->plaintext, reinterpret_cast<const unsigned char*>(pdata.data()), pdata.size());
+    pts->len = pdata.size();
+    
+    // Derive header raw data for authentication
     unsigned char *buf;
+    size_t hdr_size = encryption_header_to_bytes(&buf, ct->HDR, gbs->A + 1);
+    header->plaintext = buf;
+    header->len = hdr_size;
     
-    try {
-		GCM< AES >::Encryption e;
-		e.SetKeyWithIV(sym_key, sizeof(sym_key), ct->iv, AES_IV_LENGTH);
-        string cipher;
-        
-        // Setup AE Filter into cipher
-        AuthenticatedEncryptionFilter ef( e,
-                                         new StringSink( cipher ), false, TAG_SIZE
-                                         ); // AuthenticatedEncryptionFilter
-        
-        // Push HDR down into Additional Authenticated Data (AAD) channel
-        
-        size_t hdr_size = encryption_header_to_bytes(&buf, ct->HDR, gbs->A + 1);
-        ef.ChannelPut(AAD_CHANNEL, (const unsigned char*) buf, hdr_size);
-        ef.ChannelMessageEnd(AAD_CHANNEL);
-        free(buf);
-        
-        // Push data down into Authenticated Encryption (AE) Channel
-        ef.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*)pdata.data(), pdata.size() );
-        ef.ChannelMessageEnd(DEFAULT_CHANNEL);
-                
-        ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
-        ct->ct_length = cipher.size();
-        memcpy(ct->ct, cipher.c_str(), ct->ct_length);  
-        *cts = ct;     
-        
-	} catch(const CryptoPP::Exception& e) {
-		cerr << "AES-GCM Encryption error (" << e.GetErrorType() << "):" << e.what() << endl;
-        // Free manually, as ct probably not allocated yet
-        free(ct->iv);
-        free(ct->HDR);
-        free(ct->receivers);
-        free(ct);
-        free(buf);
-        ct = NULL;
-	}
+    ae_error_t result = encrypt_aead(&ct->ae_ct, sym_key, pts, header);
+    delete pts;
+    delete header;
     
+    if (result.error) {
+        delete[] ct->receivers;
+        delete[] ct->HDR;
+        delete ct;
+        
+    }
+    
+    *cts = ct;
 }
 
 FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
@@ -234,70 +188,36 @@ FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, sys->PK);
     
-    unsigned char derived_key[AES_DEFAULT_KEYSIZE];
-    derivate_encryption_key(derived_key, AES_DEFAULT_KEYSIZE, raw_key);
+    unsigned char derived_key[AE_KEY_LENGTH];
+    derivate_encryption_key(derived_key, AE_KEY_LENGTH, raw_key);
+    
+    cout << endl << "THIS IS BES SENDER" << endl;
+    for (int i = 0; i < AE_KEY_LENGTH; ++i) {
+        cout << std::hex << (int) derived_key[i] << " ";
+    }
 
     
-    FB::VariantMap result;
+    AE_Plaintext* pts;
+    AE_Plaintext* header = new AE_Plaintext;
     
-	try {
-        GCM< AES >::Decryption d;
-		d.SetKeyWithIV(derived_key, AES_DEFAULT_KEYSIZE, cts->iv, AES_IV_LENGTH);
-        
-        /** Determine MAC offset */
-        size_t mac_offset = cts->ct_length - TAG_SIZE;
-        
-        // Setup AE Decryption filter
-        AuthenticatedDecryptionFilter df( d, NULL,
-                                         AuthenticatedDecryptionFilter::MAC_AT_BEGIN |
-                                         AuthenticatedDecryptionFilter::THROW_EXCEPTION, TAG_SIZE );
-        
-        // Push down MAC data first
-        df.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*) cts->ct + mac_offset, TAG_SIZE );
-        
-        // Get HDR data for authentication
-        unsigned char *buf;
-        size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
-        
-        // Put down Additional Authenticated Data (AAD) for decryption
-        df.ChannelPut(AAD_CHANNEL, (const unsigned char*) buf, hdr_size); 
-        
-        free(buf);
-        
-        // Put down Ciphertext
-        df.ChannelPut(DEFAULT_CHANNEL, (const unsigned char*) cts->ct, cts->ct_length - TAG_SIZE);
-        
-        // END AAD and Regular Channel
-        df.ChannelMessageEnd(AAD_CHANNEL);
-        df.ChannelMessageEnd(DEFAULT_CHANNEL);
-        
-        // If the object does not throw, here's the only
-        //  opportunity to check the data's integrity
-        if( true == df.GetLastResult() ) {
-            
-            // Retrieve plaintext
-            df.SetRetrievalChannel(DEFAULT_CHANNEL);
-            size_t n = (size_t) df.MaxRetrievable();
-            if( n > 0 ) {
-                unsigned char *recovered = new unsigned char[n];
-                df.Get(recovered, n); 
-                std::string r_plaintext (reinterpret_cast<char*>(recovered), n);
-                result["plaintext"] = r_plaintext;
-                result["success"] = true;
-                delete[] recovered;
-                return result;
-            }
-        }
-        
-        result["error"] = true;
-        result["error_msg"] = "Invalid ciphertext. Authentication Failed";
-        return result;
-        
-	} catch(const CryptoPP::Exception& e) {
-        result["error"] = true;
-        result["error_msg"] = e.what();
-        return result;
-	}    
+    
+    // Derive header raw data for authentication
+    header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
+    
+    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);    
+    FB::VariantMap rm;
+    
+    rm["error"] = result.error;
+    if (result.error) {
+        rm["error_msg"] = result.error_msg;
+    } else {
+        rm["result"] = std::string(reinterpret_cast<const char*>(pts->plaintext), pts->len);
+        delete pts;
+    }
+    
+    delete header;
+    
+    return rm;
 }
 
 

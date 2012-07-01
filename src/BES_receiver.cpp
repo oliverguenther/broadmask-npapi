@@ -5,30 +5,7 @@
 #include <cmath>
 #include <fstream>
 
-#include <cryptopp/osrng.h>
-using CryptoPP::AutoSeededRandomPool;
-
-#include <cryptopp/cryptlib.h>
-using CryptoPP::Exception;
-using CryptoPP::BufferedTransformation;
-using CryptoPP::AuthenticatedSymmetricCipher;
-using CryptoPP::DEFAULT_CHANNEL;
-using CryptoPP::AAD_CHANNEL;
-
-#include <cryptopp/filters.h>
-using CryptoPP::Redirector;
-using CryptoPP::StringSink;
-using CryptoPP::StringSource;
-using CryptoPP::AuthenticatedEncryptionFilter;
-using CryptoPP::AuthenticatedDecryptionFilter;
-
-
-#include <cryptopp/aes.h>
-using CryptoPP::AES;
-
-#include <cryptopp/gcm.h>
-using CryptoPP::GCM;
-using CryptoPP::GCM_TablesOption;
+#include "BDEM/ae_wrapper.hpp"
 
 // hkdf scheme, rfc5869
 #include "hkdf.h"
@@ -37,10 +14,6 @@ using CryptoPP::HMACKeyDerivationFunction;
 using CryptoPP::SHA256;
 
 #include "utils.h"
-
-#define AES_IV_LENGTH 12
-#define TAG_SIZE 16
-#define AES_DEFAULT_KEYSIZE 32
 
 namespace fs = boost::filesystem;
 using namespace std;
@@ -86,9 +59,9 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
     
     try {
     
-        HMACKeyDerivationFunction<SHA256> hkdf;
+        CryptoPP::HMACKeyDerivationFunction<SHA256> hkdf;
         hkdf.DeriveKey(
-                       (byte*) key, keylen, // Derived key
+                       (byte*) key, AE_KEY_LENGTH, // Derived key
                        (const byte*) buf, keysize, // input key material (ikm)
                        salt, 53, // Salt
                        NULL, 0 // context information
@@ -109,69 +82,29 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
     
-    unsigned char derived_key[keylen];
+    unsigned char derived_key[AE_KEY_LENGTH];
     derivate_decryption_key(derived_key, raw_key);
     
-    FB::VariantMap result;
-
-	try {
-        string r_plaintext;
-        GCM< AES >::Decryption d;
-		d.SetKeyWithIV(derived_key, keylen, cts->iv, AES_IV_LENGTH);
-        
-        /** Determine MAC offset */
-        size_t mac_offset = cts->ct_length - TAG_SIZE;
-        
-        // Setup AE Decryption filter
-        AuthenticatedDecryptionFilter df( d, NULL,
-                                         AuthenticatedDecryptionFilter::MAC_AT_BEGIN |
-                                         AuthenticatedDecryptionFilter::THROW_EXCEPTION, TAG_SIZE );
-        
-        // Push down MAC data first
-        df.ChannelPut( DEFAULT_CHANNEL, (const unsigned char*) cts->ct + mac_offset, TAG_SIZE );
-        
-        // Get HDR data for authentication
-        unsigned char *buf;
-        size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
-        // Push down HDR as Additional Authenticated Data (AAD) for authentication
-        df.ChannelPut( AAD_CHANNEL, (const unsigned char*) buf , hdr_size); 
-        free(buf);
-        
-        // Push down Ciphertext
-        df.ChannelPut( DEFAULT_CHANNEL, (const unsigned char*) cts->ct, cts->ct_length - TAG_SIZE);
-        
-        // END AAD and Regular Channel
-        df.ChannelMessageEnd( AAD_CHANNEL );
-        df.ChannelMessageEnd( DEFAULT_CHANNEL );
-        
-        // If the object does not throw, here's the only
-        //  opportunity to check the data's integrity
-        if( true == df.GetLastResult() ) {
-            
-            // Retrieve plaintext
-            df.SetRetrievalChannel( DEFAULT_CHANNEL );
-            size_t n = (size_t)df.MaxRetrievable();
-            if( n > 0 ) { 
-                unsigned char *recovered = new unsigned char[n];
-                df.Get(recovered, n); 
-                std::string r_plaintext (reinterpret_cast<char*>(recovered), n);
-                result["plaintext"] = r_plaintext;
-                result["success"] = true;
-                delete[] recovered;
-                return result;
-            }
-        }
-        
-        result["error"] = true;
-        result["error_msg"] = "Invalid ciphertext. Authentication Failed";
-        return result;
-        
-	} catch(const CryptoPP::Exception& e) {
-        result["error"] = true;
-        result["error_msg"] = e.what();
-        return result;
-	} 
+    AE_Plaintext *pts;
+    AE_Plaintext *header = new AE_Plaintext;
     
+    // Derive header raw data for authentication
+    header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
+    
+    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);    
+    FB::VariantMap rm;
+    
+    rm["error"] = result.error;
+    if (result.error) {
+        rm["error_msg"] = result.error_msg;
+    } else {
+        rm["result"] = std::string(reinterpret_cast<const char*>(pts->plaintext), pts->len);
+        delete pts;
+    }
+    
+    delete header;
+    
+    return rm;
 }
 
 void BES_receiver::restore() {
@@ -255,7 +188,7 @@ void BES_receiver::store() {
 
 BES_receiver::~BES_receiver() {
     free_pubkey(PK, gbs);
-    free_bes_privkey(SK);
+    delete SK;
     free_global_params(gbs);
     members.clear();
 }

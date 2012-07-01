@@ -2,6 +2,7 @@
 #define H_STREAMHELPER
 
 #include <fstream>
+#include "BDEM/ae_wrapper.hpp"
 
 // resolves gmp c++ related linking errors
 // 'declaration of C function 'std::ostream& operator<<(std::ostream&, const __mpq_struct*)' conflicts with ..'
@@ -11,9 +12,6 @@
 extern "C" {
 #include "PBC_BKEM/bkem.h"
 }
-
-#define AES_IV_LENGTH 12
-
 
 /**
  * @typedef private key struct
@@ -29,21 +27,11 @@ typedef struct bes_privkey_s {
  */
 typedef struct bes_ciphertext_s {
     int num_receivers;
-    int ct_length;
     int* receivers;
     element_t* HDR;
-    unsigned char* iv;
-    unsigned char* ct;
+    AE_Ciphertext *ae_ct;
 }* bes_ciphertext_t;
 
-/**
- * @typedef Shared-Key ciphertext struct
- */
-typedef struct sk_ciphertext_s {
-    int ct_length;
-    unsigned char* iv;
-    unsigned char* ct;
-}* sk_ciphertext_t;
 
 /**
  * constant Type A parameters
@@ -66,8 +54,8 @@ void ciphertext_from_stream(bes_ciphertext_t *ct, bkem_global_params_t gbs, std:
 void ciphertext_to_stream(bes_ciphertext_t ct, bkem_global_params_t gbs, std::ostream& os);
 size_t encryption_header_to_bytes(unsigned char** buf, element_t* HDR, int size);
 
-void sk_ciphertext_from_stream(sk_ciphertext_t *skt_ct, std::istream& is);
-void sk_ciphertext_to_stream(sk_ciphertext_t sk_ct, std::ostream& os);
+void sk_ciphertext_from_stream(AE_Ciphertext** skt_ct, std::istream& is);
+void sk_ciphertext_to_stream(AE_Ciphertext* sk_ct, std::ostream& os);
 
 void public_key_from_stream(pubkey_t *pubkey_p, bkem_global_params_t gbs, std::istream& is, int element_size);
 void public_key_to_stream(pubkey_t pk, bkem_global_params_t gbs, std::ostream& os);
@@ -75,7 +63,6 @@ void public_key_to_stream(pubkey_t pk, bkem_global_params_t gbs, std::ostream& o
 void private_key_from_stream(bes_privkey_t *sk, bkem_global_params_t gbs, std::istream& is, int element_size);
 void private_key_to_stream(bes_privkey_t sk, std::ostream& os);
 
-void free_sk_ciphertext(sk_ciphertext_t ct);
 void free_bes_ciphertext(bes_ciphertext_t ct, bkem_global_params_t gbs);
 void free_bes_privkey(bes_privkey_t sk);
 

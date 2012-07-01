@@ -28,7 +28,7 @@ public:
     instance_types type() { return BROADMASK_INSTANCE_SK; }
 
     FB::VariantMap encrypt(std::string plaintext);
-    FB::VariantMap decrypt(sk_ciphertext_t sk_ct);
+    FB::VariantMap decrypt(AE_Ciphertext* sk_ct);
     
     
     std::vector<unsigned char> get_symmetric_key();

@@ -18,6 +18,8 @@ file (GLOB GENERAL RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     [^.]*.cmake
 	PBC_BKEM/bkem.h
 	PBC_BKEM/bkem.c
+	BDEM/*.cpp
+	BDEM/*.hpp
     )
 
 include_directories(${PLUGIN_INCLUDE_DIRS})

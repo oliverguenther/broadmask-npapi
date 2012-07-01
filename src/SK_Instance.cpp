@@ -75,7 +75,7 @@ std::vector<unsigned char> SK_Instance::get_symmetric_key() {
 FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
     
     
-    sk_ciphertext_t sk_ct = (sk_ciphertext_t) malloc(sizeof(struct sk_ciphertext_s));
+    AE_Ciphertext* sk_ct = new AE_Ciphertext;
     
     FB::VariantMap result;
     try {
@@ -96,27 +96,27 @@ FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
                                                        )
                      );
         
-        sk_ct->ct = (unsigned char*) malloc(cipher.size() * sizeof(unsigned char));
-        sk_ct->ct_length = cipher.size();
-        memcpy(sk_ct->ct, cipher.c_str(), sk_ct->ct_length);  
+        sk_ct->ct = new unsigned char[cipher.size()];
+        sk_ct->ct_len = cipher.size();
+        memcpy(sk_ct->ct, cipher.c_str(), sk_ct->ct_len);  
         
         result["success"] = true;
         std::stringstream ss;
         sk_ciphertext_to_stream(sk_ct, ss);
         result["ciphertext"] = ss.str();
-        free_sk_ciphertext(sk_ct);
+        delete sk_ct;
         
     } catch( exception& e )  {
         result["error"] = true;
         result["error_msg"] = e.what();
-        free_sk_ciphertext(sk_ct);
+        delete sk_ct;
         return result;
     }
     return result; 
 }
 
 
-FB::VariantMap SK_Instance::decrypt(sk_ciphertext_t sk_ct) {
+FB::VariantMap SK_Instance::decrypt(AE_Ciphertext* sk_ct) {
     
     FB::VariantMap result;
     std::string r_plaintext;
@@ -125,7 +125,7 @@ FB::VariantMap SK_Instance::decrypt(sk_ciphertext_t sk_ct) {
         GCM< AES >::Decryption d;
         d.SetKeyWithIV(&key[0], keylen, sk_ct->iv, AES_IV_LENGTH);
         
-        string cipher(reinterpret_cast<char const*>(sk_ct->ct), sk_ct->ct_length);        
+        string cipher(reinterpret_cast<char const*>(sk_ct->ct), sk_ct->ct_len);        
         
         AuthenticatedDecryptionFilter df( d,
                                          new StringSink( r_plaintext ),

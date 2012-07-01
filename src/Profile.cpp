@@ -57,23 +57,6 @@ FB::VariantMap Profile::get_stored_instances() {
     return keys;
 }
 
-Instance* Profile::load_unknown(std::string id) {
-    // Check if instance has been cached
-    boost::ptr_map<std::string, Instance>::iterator it;
-    it = loaded_instances.find(id);
-    
-    if (it != loaded_instances.end())
-        return it->second;
-    // Check storage for active record
-    InstanceStore* store = instance_struct(id);
-    
-    if (!store)
-        return NULL;
-    
-    Instance *instance = store->restore();
-    return instance;
-}
-
 
 std::string Profile::start_sender_instance(string id, string name, int N) {
     

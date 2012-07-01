@@ -44,6 +44,7 @@
 class Profile;
 typedef boost::shared_ptr<Profile> profile_ptr;
 
+
 // filesystem
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
@@ -203,16 +204,13 @@ public:
         if (!store)
             return NULL;
         
-        return store->restore();
+        Instance *instance = store->restore();
+        
+        // Keep instances cached
+        loaded_instances.insert(id, instance);
+        
+        return instance;
     }
-    
-    /**
-     * @fn Profile::load_unknown
-     * @brief Try to load a instance, regardless its type
-     * @param id std::string Identifier of the instance to be loaded
-     * @return A pointer to the base type of the instance, or NULL if non-existent
-     */
-    Instance* load_unknown(std::string id);
     
     /**
      * @fn Profile::instance_description
