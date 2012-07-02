@@ -16,6 +16,9 @@
 #include <boost/serialization/vector.hpp>
 #include <boost/serialization/export.hpp>
 
+// AE wrapper
+#include "BDEM/ae_wrapper.hpp"
+
 
 
 class SK_Instance : public Instance  {
@@ -27,8 +30,8 @@ public:
     
     instance_types type() { return BROADMASK_INSTANCE_SK; }
 
-    FB::VariantMap encrypt(std::string plaintext);
-    FB::VariantMap decrypt(AE_Ciphertext* sk_ct);
+    ae_error_t encrypt(AE_Ciphertext** cts, AE_Plaintext* pts);
+    ae_error_t decrypt(AE_Plaintext** pts, AE_Ciphertext* sk_ct);
     
     
     std::vector<unsigned char> get_symmetric_key();
@@ -39,11 +42,7 @@ public:
     void store() {}
     void restore() {}
     
-    std::string instance_file();
-    
 private:
-    
-    int keylen;
     
     std::vector<unsigned char> key;
         
@@ -61,7 +60,6 @@ private:
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & gid;
         ar & members;
-        ar & keylen;
         ar & key;
     }
     

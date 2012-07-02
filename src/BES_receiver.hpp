@@ -4,7 +4,6 @@
 #include <map>
 #include "Instance.hpp"
 #include "streamhelpers.hpp"
-#include "variant_map.h"
 
 #include <gmpxx.h>
 
@@ -31,11 +30,12 @@ public:
     
     /**
      * Decrypt using Broadcast system
+     * @param recovered_pts recovered plaintext struct
      * @param cts bes_ciphertext_t
      *
      * @return decrypted plain text or empty vector
      */
-    FB::VariantMap bes_decrypt(bes_ciphertext_t& ct);
+    ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& ct);
     
     
     /**

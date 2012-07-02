@@ -77,7 +77,7 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
     
 }
 
-FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
+ae_error_t BES_receiver::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts) {
     
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
@@ -92,19 +92,11 @@ FB::VariantMap BES_receiver::bes_decrypt(bes_ciphertext_t& cts) {
     header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
     
     ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);    
-    FB::VariantMap rm;
     
-    rm["error"] = result.error;
-    if (result.error) {
-        rm["error_msg"] = result.error_msg;
-    } else {
-        rm["result"] = std::string(reinterpret_cast<const char*>(pts->plaintext), pts->len);
-        delete pts;
-    }
-    
+    *recovered_pts = pts;
     delete header;
     
-    return rm;
+    return result;
 }
 
 void BES_receiver::restore() {

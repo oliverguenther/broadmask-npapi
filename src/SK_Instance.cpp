@@ -1,50 +1,22 @@
 #include "SK_Instance.hpp"
 #include <sstream>
 
-#include <cryptopp/aes.h>
-using CryptoPP::AES;
-
-#include <cryptopp/cryptlib.h>
-using CryptoPP::BufferedTransformation;
-using CryptoPP::AuthenticatedSymmetricCipher;
-
-#include <cryptopp/filters.h>
-using CryptoPP::Redirector;
-using CryptoPP::StringSink;
-using CryptoPP::StringSource;
-using CryptoPP::AuthenticatedEncryptionFilter;
-using CryptoPP::AuthenticatedDecryptionFilter;
-
-#include <cryptopp/gcm.h>
-using CryptoPP::GCM;
-using CryptoPP::GCM_TablesOption;
+#include "Base64.h"
+#include "utils.h"
 
 #include <cryptopp/osrng.h>
 using CryptoPP::AutoSeededRandomPool;
 
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
-
-
-#include "Base64.h"
-#include "utils.h"
-
-
-#define AES_IV_LENGTH 12
-#define TAG_SIZE 16
-#define AES_DEFAULT_KEYSIZE 32
 
 SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {
     
-    // Default is 256bit key
-    keylen = AES_DEFAULT_KEYSIZE;
     members = std::map<std::string, int>();
     
     // Create random key
     AutoSeededRandomPool prng;
-    unsigned char buf[keylen];
-	prng.GenerateBlock(buf, keylen);
-    key.assign(buf, buf + keylen);
+    unsigned char buf[AE_KEY_LENGTH];
+	prng.GenerateBlock(buf, AE_KEY_LENGTH);
+    key.assign(buf, buf + AE_KEY_LENGTH);
     
     
 }
@@ -57,7 +29,11 @@ SK_Instance::SK_Instance(std::string groupid, std::string key_b64) : Instance(gr
     
     // Decode key from base64
     key = base64_decode_vec(key_b64);
-    keylen = key.size();
+    
+    if (key.size() != AE_KEY_LENGTH) {
+        cerr << "Input key unusable, as length was not " << AE_KEY_LENGTH << ", but " << key.size() << endl;
+        key.clear();
+    }
         
 }
 
@@ -72,92 +48,11 @@ std::vector<unsigned char> SK_Instance::get_symmetric_key() {
 }
 
 
-FB::VariantMap SK_Instance::encrypt(std::string plaintext) {
-    
-    
-    AE_Ciphertext* sk_ct = new AE_Ciphertext;
-    
-    FB::VariantMap result;
-    try {
-        
-        
-        // Generate random IV
-        sk_ct->iv = (unsigned char*) malloc(AES_IV_LENGTH * sizeof(unsigned char));
-        AutoSeededRandomPool prng;
-        prng.GenerateBlock(sk_ct->iv, AES_IV_LENGTH);
-        
-        GCM< AES >::Encryption e;
-        e.SetKeyWithIV(&key[0], keylen, sk_ct->iv, AES_IV_LENGTH);
-        
-        std::string cipher;
-        StringSource(plaintext, true,
-                     new AuthenticatedEncryptionFilter( e,
-                                                       new StringSink( cipher ), false, TAG_SIZE
-                                                       )
-                     );
-        
-        sk_ct->ct = new unsigned char[cipher.size()];
-        sk_ct->ct_len = cipher.size();
-        memcpy(sk_ct->ct, cipher.c_str(), sk_ct->ct_len);  
-        
-        result["success"] = true;
-        std::stringstream ss;
-        sk_ciphertext_to_stream(sk_ct, ss);
-        result["ciphertext"] = ss.str();
-        delete sk_ct;
-        
-    } catch( exception& e )  {
-        result["error"] = true;
-        result["error_msg"] = e.what();
-        delete sk_ct;
-        return result;
-    }
-    return result; 
+ae_error_t SK_Instance::encrypt(AE_Ciphertext** cts, AE_Plaintext* pts) {
+    return encrypt_ae(cts, &key[0], pts);
 }
 
 
-FB::VariantMap SK_Instance::decrypt(AE_Ciphertext* sk_ct) {
-    
-    FB::VariantMap result;
-    std::string r_plaintext;
-    
-    try {
-        GCM< AES >::Decryption d;
-        d.SetKeyWithIV(&key[0], keylen, sk_ct->iv, AES_IV_LENGTH);
-        
-        string cipher(reinterpret_cast<char const*>(sk_ct->ct), sk_ct->ct_len);        
-        
-        AuthenticatedDecryptionFilter df( d,
-                                         new StringSink( r_plaintext ),
-                                         AuthenticatedDecryptionFilter::DEFAULT_FLAGS, TAG_SIZE
-                                         ); // AuthenticatedDecryptionFilter
-        
-        StringSource( cipher, true,
-                     new Redirector( df /*, PASS_EVERYTHING */ )
-                     ); // StringSource
-        
-        // If the object does not throw, here's the only
-        //  opportunity to check the data's integrity
-        if( true == df.GetLastResult() ) {
-            result["plaintext"] = r_plaintext;
-            return result;
-        }
-    }
-    catch( CryptoPP::Exception& e ) {
-        result["error"] = true;
-        result["error_msg"] = e.what();
-    }
-    
-    result["error"] = true;
-    result["error_msg"] = "Incorrect ciphertext";
-    return result;
-    
-}
-
-
-
-
-std::string SK_Instance::instance_file() {
-    boost::filesystem::path instance_path = get_instance_path("sk", gid);
-    return instance_path.string();
+ae_error_t SK_Instance::decrypt(AE_Plaintext** pts, AE_Ciphertext* sk_ct) {
+    return decrypt_ae(pts, &key[0], sk_ct);    
 }

@@ -6,10 +6,6 @@
 #include <boost/archive/text_iarchive.hpp>
 #include <boost/serialization/map.hpp>
 
-// filesystem
-#include <boost/filesystem/operations.hpp>
-#include <boost/filesystem/path.hpp>
-
 /* The available instance types */
 typedef enum {
     ERR_NO_INSTANCE = 0,
@@ -17,10 +13,6 @@ typedef enum {
     BROADMASK_INSTANCE_BES_RECEIVER = 2,
     BROADMASK_INSTANCE_SK = 4 
 } instance_types;
-
-//#define BROADMASK_INSTANCE_BES_SENDER 1
-//#define BROADMASK_INSTANCE_BES_RECEIVER 2
-//#define BROADMASK_INSTANCE_SK 4
 
 class Instance {
     

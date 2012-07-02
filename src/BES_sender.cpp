@@ -10,8 +10,7 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
-// Include AE scheme wrapper
-#include "BDEM/ae_wrapper.hpp"
+
 // hkdf scheme, rfc5869
 #include <cryptopp/hmac.h>
 #include <cryptopp/sha.h>
@@ -183,19 +182,13 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
     *cts = ct;
 }
 
-FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
+ae_error_t BES_sender::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts) {
     
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, sys->PK);
     
     unsigned char derived_key[AE_KEY_LENGTH];
     derivate_encryption_key(derived_key, AE_KEY_LENGTH, raw_key);
-    
-    cout << endl << "THIS IS BES SENDER" << endl;
-    for (int i = 0; i < AE_KEY_LENGTH; ++i) {
-        cout << std::hex << (int) derived_key[i] << " ";
-    }
-
     
     AE_Plaintext* pts;
     AE_Plaintext* header = new AE_Plaintext;
@@ -204,20 +197,12 @@ FB::VariantMap BES_sender::bes_decrypt(bes_ciphertext_t& cts) {
     // Derive header raw data for authentication
     header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
     
-    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);    
-    FB::VariantMap rm;
+    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);
     
-    rm["error"] = result.error;
-    if (result.error) {
-        rm["error_msg"] = result.error_msg;
-    } else {
-        rm["result"] = std::string(reinterpret_cast<const char*>(pts->plaintext), pts->len);
-        delete pts;
-    }
-    
+    *recovered_pts = pts;
     delete header;
     
-    return rm;
+    return result;
 }
 
 

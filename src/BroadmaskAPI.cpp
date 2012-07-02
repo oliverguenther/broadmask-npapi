@@ -39,33 +39,12 @@ using boost::format;
 #include "BES_sender.hpp"
 #include "BES_receiver.hpp"
 
-
 #include "utils.h"
 #include "gnupg_wrapper.hpp"
 #include "BitmapWrapper.h"
 #include "streamhelpers.hpp"
 
-
-#include <cryptopp/filters.h>
-using CryptoPP::StringSink;
-using CryptoPP::StringSource;
-using CryptoPP::StreamTransformationFilter;
-
-#include <cryptopp/aes.h>
-using CryptoPP::AES;
-
-#include <cryptopp/modes.h>
-using CryptoPP::CFB_Mode;
-
-#include <cryptopp/cryptlib.h>
-using CryptoPP::Exception;
-
-#include <cryptopp/osrng.h>
-using CryptoPP::AutoSeededRandomPool;
-
 using namespace std;
-namespace fs = boost::filesystem;
-
 #define M_INIT_AND_UNLOCK_PROFILE \
 profile_ptr profile_sp = pm->unlock_profile(m_host->getDOMWindow(), active_profile); \
 Profile *p = profile_sp.get(); \
@@ -80,6 +59,9 @@ if (!p) { \
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Instance Management 
+
+#pragma mark -
+#pragma mark Instance Management
 
 FB::VariantMap BroadmaskAPI::create_sender_instance(std::string gid, std::string name, int N) {
     M_INIT_AND_UNLOCK_PROFILE
@@ -135,6 +117,8 @@ FB::VariantMap BroadmaskAPI::get_stored_instances() {
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Instance Member API
+#pragma mark -
+#pragma mark Instance Member Management
 
 FB::VariantMap BroadmaskAPI::add_member(std::string gid, std::string id) {
     
@@ -227,6 +211,9 @@ FB::VariantMap BroadmaskAPI::get_instance_members(std::string gid) {
 ///////////////////////////////////////////////////////////////////////////////
 /// BES specifics
 
+#pragma mark -
+#pragma mark BES specifics
+
 FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
@@ -274,6 +261,10 @@ FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Instance key retrieval
+
+#pragma mark -
+#pragma mark Instance key retrieval
+
 FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE
@@ -307,6 +298,9 @@ FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
 
 ///////////////////////////////////////////////////////////////////////////////
 /// Encryption/Decryption API
+
+#pragma mark -
+#pragma mark Encryption, Decryption
 
 FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool image) {
     
@@ -459,7 +453,13 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
         {
             BES_sender* bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
-            result = bci->bes_decrypt(ct);
+            AE_Plaintext *pts;
+            ae_error_t r = bci->bes_decrypt(&pts, ct);
+            ae_error_to_map(result, r);
+            if (!r.error) {
+                result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
+                delete pts;
+            }            
             free_bes_ciphertext(ct, bci->gbs);
             break;
         }
@@ -467,7 +467,13 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
         {
             BES_receiver* bci = dynamic_cast<BES_receiver*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
-            result = bci->bes_decrypt(ct);
+            AE_Plaintext *pts;
+            ae_error_t r = bci->bes_decrypt(&pts, ct);
+            ae_error_to_map(result, r);
+            if (!r.error) {
+                result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
+                delete pts;
+            }  
             free_bes_ciphertext(ct, bci->gbs);
             break;
         }
@@ -495,24 +501,38 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
         return result;
     }
     
-    result = ski->encrypt(data);
+    AE_Ciphertext *cts;
+    AE_Plaintext *pts = new AE_Plaintext;
+    pts->plaintext = new unsigned char[data.size()];
+    pts->len = data.size();
+    memcpy(pts->plaintext, data.data(), data.size());
     
-    if (result.find("error") != result.end())
+    ae_error_t r = ski->encrypt(&cts, pts);
+    delete pts;
+    
+    ae_error_to_map(result, r);
+    
+    if (r.error) {
         return result;
+    }
     
-    std::string ct_str = result["ciphertext"].convert_cast<std::string>();
+    // convert ciphertext struct to base64 string
+    std::ostringstream oss;
+    sk_ciphertext_to_stream(cts, oss);
+    std::string cts_string = oss.str();
+    delete cts;
     if (image) {
-        std::vector<unsigned char> ct_vec (ct_str.begin(), ct_str.end());
+        // Encode as bitmap
+        std::vector<unsigned char> ct_vec = std::vector<unsigned char>(cts_string.begin(), cts_string.end());
         std::vector<unsigned char> ct_wrapped = encodeImage(ct_vec);
         result["ciphertext"] = base64_encode(ct_wrapped);
     } else {
-        result["ciphertext"] = base64_encode(ct_str);
+        result["ciphertext"] = base64_encode(cts_string);
     }
     
+
     return result;
-    
-    
-    
+
 }
 
 FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64, bool image) {
@@ -543,7 +563,18 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
     AE_Ciphertext* ct;
     stringstream ss(sk_ct_str);
     sk_ciphertext_from_stream(&ct, ss);
-    result = ski->decrypt(ct);
+    AE_Plaintext *pts;
+    ae_error_t r = ski->decrypt(&pts, ct);
+    
+    ae_error_to_map(result, r);
+    
+    if (r.error) {
+        return result;
+    }
+    
+    result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
+    
+    delete pts;
     delete ct;
     return result;
 }
@@ -552,6 +583,9 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
 
 ///////////////////////////////////////////////////////////////////////////////
 /// GPGME wrappers for Profile GPG features
+
+#pragma mark -
+#pragma mark GnuPG wrapper
 
 FB::VariantMap BroadmaskAPI::gpg_store_keyid(std::string user_id, std::string key_id) {
     
@@ -614,6 +648,9 @@ FB::VariantMap BroadmaskAPI::get_member_sk_gpg(std::string gid, std::string sysi
 
 ///////////////////////////////////////////////////////////////////////////////
 /// GPGME wrapper, for generic use
+#pragma mark -
+#pragma mark Profile independent GPGME helpers
+
 FB::VariantMap BroadmaskAPI::gpg_encrypt_with(std::string data, std::string key_id, std::string sign_key_id) {
     return gpgme_encrypt_with(data, key_id, sign_key_id);
 }
@@ -638,6 +675,8 @@ FB::VariantMap BroadmaskAPI::gpg_search_keys(std::string filter, int private_key
 ///////////////////////////////////////////////////////////////////////////////
 /// Profile Management API
 
+#pragma mark -
+#pragma mark Profile Management
 
 FB::VariantMap BroadmaskAPI::get_stored_profiles() {
     return pm->get_stored_profiles();
@@ -680,6 +719,9 @@ FB::VariantMap BroadmaskAPI::store_profile(std::string profilename) {
 FB::VariantMap BroadmaskAPI::delete_profile(std::string profilename) {
     return pm->delete_profile(m_host->getDOMWindow(), profilename);
 }
+
+#pragma mark -
+#pragma mark Internals
 
 ///////////////////////////////////////////////////////////////////////////////
 BroadmaskPtr BroadmaskAPI::getPlugin()
@@ -750,6 +792,15 @@ m_plugin(plugin), m_host(host) {
 
 }
 
+#pragma mark -
+#pragma mark Utils
+
+void BroadmaskAPI::ae_error_to_map(FB::VariantMap& result, ae_error_t& r) {
+    result["error"] = r.error;
+    if (r.error) {
+        result["error_msg"] = r.error_msg;
+    }    
+}
 
 /*
  * TESTS

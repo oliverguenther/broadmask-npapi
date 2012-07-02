@@ -6,7 +6,6 @@
 #include <vector>
 #include "Instance.hpp"
 #include "streamhelpers.hpp"
-#include "variant_map.h"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
@@ -20,6 +19,8 @@
 #include <boost/filesystem/operations.hpp>
 #include <boost/filesystem/path.hpp>
 
+// Include AE scheme wrapper
+#include "BDEM/ae_wrapper.hpp"
 
 class BES_sender : public Instance  {
     
@@ -39,7 +40,7 @@ public:
     /**
      * Decrypt ciphertext using Broadcast system
      */
-    FB::VariantMap bes_decrypt(bes_ciphertext_t& cts);
+    ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts);
     
     
     /** 

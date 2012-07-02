@@ -263,6 +263,8 @@ private:
     
     
     std::string active_profile;
+    
+    void ae_error_to_map(FB::VariantMap& result, ae_error_t& r);
 
 };
 
