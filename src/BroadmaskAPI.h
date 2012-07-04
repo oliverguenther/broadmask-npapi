@@ -228,15 +228,7 @@ public:
     FB::VariantMap get_stored_instances();
     
     FB::VariantMap remove_instance(std::string id);
-    
-    void run_bes_benchmark(std::string output_folder, int max_users, int max_size, bool as_iamge, int passes);
-    bes_encryption_times run_bes_encryption(std::string sender_instance, 
-                                            std::vector<std::string>& decrypt_instances, std::string receiving_instance, std::string& message, bool asImage);
-    
-    bes_setup_times run_bes_setup(std::string sender_instance, int N, std::vector<std::string>& decrypt_instances, bool remove_after);
-    
-    void run_sk_benchmark(std::string output_folder, int max_users, int file_size, bool as_image, int passes);
-    
+       
     FB::VariantMap get_stored_profiles();
     
     FB::VariantMap unlock_profile(std::string);

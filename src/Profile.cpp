@@ -23,11 +23,12 @@
 
 #include "Profile.hpp"
 #include "Base64.h"
-
-
 #include <fstream>
+
+#ifndef NO_PLUGIN
 #include <DOM/Window.h>
 namespace fs = boost::filesystem;
+#endif
 
 Profile::Profile(std::string profile_name, std::string key_id) {
     name = profile_name;
@@ -39,6 +40,7 @@ Profile::~Profile() {
     loaded_instances.clear();
 }
 
+#ifndef NO_PLUGIN
 FB::VariantMap Profile::get_stored_instances() {
     FB::VariantMap keys;
     for (boost::ptr_map<std::string,InstanceStore>::iterator it = instances.begin(); it != instances.end(); ++it) {
@@ -56,6 +58,7 @@ FB::VariantMap Profile::get_stored_instances() {
     
     return keys;
 }
+#endif
 
 
 std::string Profile::start_sender_instance(string id, string name, int N) {
@@ -69,7 +72,7 @@ std::string Profile::start_sender_instance(string id, string name, int N) {
         
         // create and store instance
         instance = new BES_sender(id, N);
-
+        
         // Record this instance with a new storage
         InstanceStore *store = new InstanceStore(name, instance);
         
@@ -86,6 +89,20 @@ std::string Profile::start_sender_instance(string id, string name, int N) {
     
 }
 
+void Profile::add_receiver_instance(BES_receiver *instance) {
+    
+    std::string id = instance->id();
+    
+    // Record this instance with a new storage
+    InstanceStore *store = new InstanceStore(id, instance);
+    
+    // Insert the record to known instances
+    instances.insert(id, store);
+    
+    // Keep the instances loaded
+    loaded_instances.insert(id,instance);
+}
+
 void Profile::start_receiver_instance(string id, string name, int N, string pubdata_b64, string private_key_b64) {
     
     instance_types stored_type = instance_type(id);
@@ -100,16 +117,7 @@ void Profile::start_receiver_instance(string id, string name, int N, string pubd
     
     // Create and store instance
     BES_receiver *instance = new BES_receiver(id, N, public_params, private_key);  
-    
-    // Record this instance with a new storage
-    InstanceStore *store = new InstanceStore(name, instance);
-    
-    // Insert the record to known instances
-    instances.insert(id, store);
-    
-    // Keep the instances loaded
-    loaded_instances.insert(id,instance);
-    
+    add_receiver_instance(instance);
 }
 
 void Profile::start_shared_instance(std::string id, std::string name) {
@@ -155,6 +163,7 @@ void Profile::start_shared_instance_withkey(std::string id, std::string name, st
 }
 
 
+#ifndef NO_PLUGIN
 FB::VariantMap Profile::instance_description(std::string id) {
     InstanceStore* inst = instance_struct(id);
     FB::VariantMap result;
@@ -169,6 +178,7 @@ FB::VariantMap Profile::instance_description(std::string id) {
     }
     return result;
 }
+#endif
 
 InstanceStore* Profile::instance_struct(std::string id) {
     boost::ptr_map<string, InstanceStore>::iterator it = instances.find(id);
@@ -211,6 +221,7 @@ void Profile::unload_instances() {
 }
 
 
+#ifndef NO_PLUGIN
 ////////////////////////////////////////////////////////////////////////////////////////////
 // UserStorage
 FB::VariantMap Profile::associatedKeys() {
@@ -262,6 +273,7 @@ FB::VariantMap Profile::encrypt_for(std::string& data, std::string& user_id) {
 void Profile::removePGPKey(string& user_id) {
     keymap.erase(user_id);
 }
+#endif
 
 
 profile_ptr Profile::load(std::istream& is) {
@@ -304,7 +316,7 @@ void Profile::store(profile_ptr p, ostream& os) {
     try {
         boost::archive::text_oarchive oa(os);
         oa << istore;
-
+        
     } catch (exception& e) {
         cerr << e.what() << endl;
     }

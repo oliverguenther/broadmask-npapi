@@ -6,6 +6,7 @@ using std::cout;
 using std::cerr;
 using std::endl;
 
+#ifndef NO_PLUGIN
 FB::VariantMap gpgme_import_key_block(std::string& keydata) {
     gpgme_ctx_t ctx = create_gpg_context();
     gpgme_error_t err;
@@ -150,6 +151,7 @@ FB::VariantMap gpgme_decrypt(std::string& data) {
     return result_to_variant(r);
 }
 
+#endif
 
 gpgme_result gpgme_encrypt(const char *data, const char *key_id, int sign, const char *sign_key_id, int armored) {
     gpgme_ctx_t ctx = create_gpg_context();
@@ -215,7 +217,7 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
     gpgme_encrypt_result_t result;
     
     
-   
+    
     err = gpgme_get_key (ctx, key_id,
                          &key[0], 0);
     if (err) {
@@ -250,7 +252,7 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
         err = gpgme_op_encrypt_sign (ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
     else
         err = gpgme_op_encrypt(ctx, key, GPGME_ENCRYPT_ALWAYS_TRUST, in, out);
-        
+    
     if (err) {
         return gpgme_error(err);
     }
@@ -274,7 +276,7 @@ gpgme_result gpgme_encrypt_io (gpgme_data_t in, gpgme_data_t out, const char* ke
 
 gpgme_result gpgme_encrypt_tofile(const char *data,
                                   const char *key_id, const char *path) {
-        
+    
     
     // Encrypt without armoring, do not sign
     gpgme_result enc_result = gpgme_encrypt(data, key_id, 0, NULL, 0);
@@ -285,21 +287,21 @@ gpgme_result gpgme_encrypt_tofile(const char *data,
     
     // Write result to file
     FILE* outfile = fopen(path, "w");
-   
+    
     if (!outfile) {
         gpgme_result r;
         r.error = true;
         r.error_msg = "Couldn't open file " + std::string(path);
         return r;
     }
-
+    
     fwrite (enc_result.result , 1 , strlen(enc_result.result) , outfile );
     
     if (fflush(outfile) != 0)
         cerr << "Couldn't flush output file after gpgme_encrypt_io" << endl;
     if (fclose(outfile) != 0)
         cerr << "Couldn't close output file after gpgme_encrypt_io" << endl;
-
+    
     return enc_result;
 }
 
@@ -340,7 +342,7 @@ gpgme_result gpgme_decrypt_input(gpgme_data_t input) {
         r.error_msg = gpgme_strerror (err);
         return r;
     }
-      
+    
     size_t nRead = 0;
     char* buf = gpgme_data_release_and_get_mem (out, &nRead);
     if (!buf) {
@@ -359,10 +361,10 @@ gpgme_result gpgme_decrypt_input(gpgme_data_t input) {
 gpgme_result gpgme_decrypt_file(const char *path) {
 	gpgme_data_t in;
 	gpgme_error_t err;
-
+    
 	err = gpgme_data_new_from_file(&in, path, 1);
 	if (err) return gpgme_error(err);
-
+    
 	return gpgme_decrypt_input(in);
 }
 
@@ -373,8 +375,8 @@ gpgme_result gpgme_error (gpgme_error_t& err) {
     r.error_msg = gpgme_strerror(err);
     return r;
 }
-    
 
+#ifndef NO_PLUGIN
 FB::VariantMap result_to_variant (gpgme_result& r) {
     FB::VariantMap vmap;
     
@@ -383,7 +385,7 @@ FB::VariantMap result_to_variant (gpgme_result& r) {
     
     if (!r.error)
         vmap["result"] = std::string(r.result);
-
+    
     return vmap;
 }
 
@@ -397,6 +399,7 @@ FB::VariantMap gpgme_error_map (gpgme_error_t& err) {
     
     return error;
 }
+#endif
 
 gpgme_ctx_t create_gpg_context() {
     gpgme_ctx_t ctx;

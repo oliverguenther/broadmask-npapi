@@ -25,6 +25,7 @@
 #define H_PROFILE
 
 #include <iostream>
+#include <sstream>
 #include <map>
 #include "utils.h"
 
@@ -56,11 +57,13 @@ typedef boost::shared_ptr<Profile> profile_ptr;
 #include <boost/serialization/vector.hpp>
 
 
+#ifndef NO_PLUGIN
 // JSAPI
 #include "JSAPIAuto.h"
 #include "APITypes.h"
 #include "JSObject.h"
 #include "variant_map.h"
+#endif
 
 
 // We need to register all derived classes for Boost
@@ -104,7 +107,7 @@ struct InstanceStore {
     int max_users;
     
     void store(Instance *instance) {
-                        
+        
         // Let instance store internal data
         instance->store();
         
@@ -141,7 +144,7 @@ struct InstanceStore {
         
         return instance;
     }
-        
+    
     template<class Archive>
     void serialize(Archive &ar, const unsigned int file_version) {
         
@@ -170,7 +173,9 @@ public:
      * return FB::VariantMap instance, JS object containing instances
      * [id, name, type, max_users]
      */
+#ifndef NO_PLUGIN
     FB::VariantMap get_stored_instances();
+#endif
     
     /**
      * @fn Profile::remove_instance
@@ -211,7 +216,7 @@ public:
         
         return instance;
     }
-    
+#ifndef NO_PLUGIN    
     /**
      * @fn Profile::instance_description
      * @brief Retrieve an instance descriptor
@@ -219,7 +224,8 @@ public:
      * @return JS object with [id, name, type, path, max_users] keys
      */
     FB::VariantMap instance_description(std::string id);
-       
+#endif
+    
     /**
      * @fn Profile::instance_type
      * @brief Return the instance type value
@@ -250,6 +256,8 @@ public:
      */
     void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);
     
+    void add_receiver_instance(BES_receiver *instance);
+    
     
     /**
      * @fn Profile::start_shared_instance
@@ -275,7 +283,7 @@ public:
      * @brief Removes all cached entries in loaded_instances
      */
     void unload_instances();
-
+    
     /**
      * @fn Profile::update_stores()
      * @brief Save all progress from instances in loaded_instances
@@ -321,7 +329,7 @@ public:
      */
     void setPGPKey(std::string& user_id, std::string& keyid);
     
-    
+#ifndef NO_PLUGIN    
     /**
      * @fn UserStorage::getPGPKey
      * @brief Retrieves the Key ID for user_id, if existant
@@ -352,6 +360,7 @@ public:
      * @return JS object with op results
      */    
     FB::VariantMap associatedKeys();
+#endif    
     
     
 private:
@@ -379,7 +388,7 @@ private:
      * @return InstanceStore* to the stored instance or NULL
      */
     InstanceStore* instance_struct(std::string id);
-
+    
     //
     // Boost class serialization, independent from BES serialization
     //

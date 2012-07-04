@@ -26,13 +26,16 @@
 #define H_GNUPG_WRAPPER
 
 // JSAPI
+#ifndef NO_PLUGIN
 #include "JSAPIAuto.h"
 #include "APITypes.h"
 #include "JSObject.h"
 #include "variant_map.h"
+#endif
 
 // GPGME
 #include <gpgme.h>
+#include <string>
 
 // Wraps enc/dec result and/or error information
 typedef struct {
@@ -109,7 +112,9 @@ gpgme_result gpgme_decrypt_file (const char *path);
  * @parap sign_key_id Key to sign with
  * @return JS object with op results
  */
+#ifndef NO_PLUGIN
 FB::VariantMap gpgme_encrypt_with(std::string& data, std::string& key_id, std::string& sign_key_id);
+
 
 /**
  * @fn gpgme_decrypt
@@ -133,13 +138,16 @@ FB::VariantMap gpgme_search_key(std::string key, int secret_keys_only);
  * @return JS object with op results
  */    
 FB::VariantMap gpgme_import_key_block(std::string& keydata);
+#endif
 
 
 // Create a gpgme context
 gpgme_ctx_t create_gpg_context();
 
+#ifndef NO_PLUGIN
 // Return the content of a gpgme_result in a FB::VariantMap
 FB::VariantMap result_to_variant (gpgme_result& r);
+#endif
 
 // return string representation of a gpgme_validity_t struct
 std::string get_validity_str (gpgme_validity_t& v);
@@ -150,7 +158,9 @@ std::string get_status_str (gpgme_error_t& e);
 // Return a gpgme_result struct with error description
 gpgme_result gpgme_error(gpgme_error_t& err);
 
+#ifndef NO_PLUGIN
 // Return a FB::VariantMap with error description
 FB::VariantMap gpgme_error_map (gpgme_error_t& err);
+#endif
 
 #endif
