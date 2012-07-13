@@ -14,7 +14,6 @@
 #include "BrowserHost.h"
 #include "Broadmask.h"
 #include "Base64.h"
-#include "Benchmarks.hpp"
 #include "ProfileManager.hpp"
 
 
