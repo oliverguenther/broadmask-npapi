@@ -1,6 +1,15 @@
 #ifndef H_BES_RECEIVER
 #define H_BES_RECEIVER
 
+/**
+ * @file   BES_receiver.hpp
+ * @Author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Implements the BM-BE receiving instance
+ *
+ * 
+ */
+
 #include <map>
 #include "Instance.hpp"
 #include "streamhelpers.hpp"
@@ -19,7 +28,12 @@ extern "C" {
 #include <boost/serialization/base_object.hpp>
 #include <boost/serialization/export.hpp>
 
-
+/**
+ * @class BES_receiver BES_receiver.hpp
+ * @brief Implements the BM-BE receiving instance
+ *
+ * 
+ */
 class BES_receiver : public Instance  {
     
 public:     
@@ -89,7 +103,7 @@ private:
     std::string stored_state;
     
     
-/**
+    /**
      * Uses BKEM to derive symmetric key sk
      */ 
     int derivate_decryption_key(unsigned char *key, element_t raw_key);

@@ -181,9 +181,13 @@ profile_ptr ProfileManager::unlock_profile(FB::DOM::WindowPtr window, std::strin
     
     profile_ptr p = profile_ptr();
     
+    if (profilename.size() == 0) {
+        profilename = last_profile;
+    }
+    
     // Request permission from user if domain unknown
-    if (!has_user_ack(profilename, window))
-        return p;
+    //if (!has_user_ack(profilename, window))
+     //   return p;
     
     // if Profile matches active profile
     if (is_active_and_valid(profilename))

@@ -1,28 +1,41 @@
+/**
+ * @file   BitmapWrapper.h
+ * @author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Implements Bitmap Wrapping scheme
+ *
+ * Provides methods for the Wrapping of arbitrary
+ * payload into (Windows).
+ *
+ * Ported from Syncany,
+ * http://bazaar.launchpad.net/~syncany-team/syncany
+ */
+
 #ifndef __BITMAPWRAPPER__
 #define  __BITMAPWRAPPER__
+
 #include <stdint.h>
 #include <vector>
 
-/* BMP Header Size */
+/** BMP Header Size */
 #define _BMPHEADERSIZE 54
 
-/* BMP Header Offset to Size in Bytes */
+/** BMP Header Offset to Size in Bytes */
 #define _BMPOFFSET_SIZE 2
 
-/* BMP Header Offset to embedded Image width */
+/** BMP Header Offset to embedded Image width */
 #define _BMPOFFSET_WIDTH 18
 
-/* BMP Header Offset to embedded Image height */
+/** BMP Header Offset to embedded Image height */
 #define _BMPOFFSET_HEIGHT 22
 
-/* BMP Header Offset to embedded Image size (including BMP line padding) */
+/** BMP Header Offset to embedded Image size (including BMP line padding) */
 #define _BMPOFFSET_EMBEDDED_SIZE 34
 
-/* BMP Header Offset to embedded Image payload length */
+/** BMP Header Offset to embedded Image payload length */
 #define _BMPOFFSET_PAYLOAD 38
 
 // 	Constant BMP Header to wrap around image data
-//	Ported from http://bazaar.launchpad.net/~syncany-team/syncany
 
 const unsigned char _BMPHEADER_[] = {
     /* 00 */ 0x42, 0x4d,             // Bitmap Signature
@@ -43,7 +56,17 @@ const unsigned char _BMPHEADER_[] = {
     /* 50 */ 0x00, 0x00, 0x00, 0x00, // number of important colors, or zero
 };
 
+/**
+ * @brief Encode payload as BMP image
+ * @param data A std::vector with binary payload
+ * @return The binary payload encoded as a Windows bitmap
+ */
 std::vector<unsigned char> encodeImage(std::vector<unsigned char> data);
+/**
+ * @brief Decode a BMP image vector, extracting its payload
+ * @param data A std::vector containing a BMP file
+ * @return The binary payload
+ */
 std::vector<unsigned char> decodeImage(std::vector<unsigned char> data);
 
 int parseint(const unsigned char* bytes);

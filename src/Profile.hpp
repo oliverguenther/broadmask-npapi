@@ -24,6 +24,15 @@
 #ifndef H_PROFILE
 #define H_PROFILE
 
+/**
+ * @file   Profile.hpp
+ * @Author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Wrapper for local user profile management
+ *
+ *
+ */
+
 #include <iostream>
 #include <sstream>
 #include <map>
@@ -76,13 +85,21 @@ archive.register_type(static_cast<BES_receiver*>(NULL)); \
 archive.register_type(static_cast<SK_Instance*>(NULL));
 
 /**
- * @struct instance_s
+ * @struct InstanceStore
  * @brief Descriptor for a serialized instance
  */
 struct InstanceStore {
     
-    // Default constructor for serialization
+    /**
+     * @brief Default constructor for serialization
+     */
     InstanceStore() {}
+    
+    /**
+     * @brief Register a created instance in this profile
+     * @param name Instance name (local)
+     * @param instance An instance pointer to store into this profile
+     */
     InstanceStore(std::string name, Instance *instance)
     : name(name) {
         id = instance->id();
@@ -91,21 +108,25 @@ struct InstanceStore {
         store(instance);
     }
     
-    // Instance identifier
+    /** Instance identifier */
     std::string id;
     
-    // Instance name -- private
+    /** Instance name -- private */
     std::string name;
     
-    // Instance type
+    /** Instance type */
     instance_types type;
     
-    // stores serialized instance data
+    /** stores serialized instance data */
     std::string serialized_data;
     
-    // Instance max. number of users
+    /** Instance max. number of users */
     int max_users;
     
+    /**
+     * @fn InstanceStore::store
+     * @brief Serializes an instance pointer into a string
+     */
     void store(Instance *instance) {
         
         // Let instance store internal data
@@ -124,6 +145,10 @@ struct InstanceStore {
         oss.clear();
     }
     
+    /**
+     * @fn InstanceStore::restore
+     * @brief Restores an instance from string
+     */
     Instance* restore() {
         
         
@@ -148,6 +173,14 @@ struct InstanceStore {
     template<class Archive>
     void serialize(Archive &ar, const unsigned int file_version) {
         
+        // When the profile is serialized, we'll store
+        // the last serialized state (serialized_data)
+        // to disk.
+        //
+        // When restored, the Instance itself is deserialized
+        // from the ASCII serialization string
+         
+        
         ar & id;
         ar & name;
         ar & type;
@@ -157,12 +190,27 @@ struct InstanceStore {
     }
 };
 
-
+/**
+ * @class Profile Profile.hpp
+ * @brief Represents a local profile, consisting of multiple Instances
+ *
+ * The Profile class handles serialization of all instances while it is itself
+ * serializable to disk.
+ */
 class Profile  {
     
 public: 
-    // Used for Boost serialization
+    /**
+     * @brief Default constructor, used only by Boost serialization
+     */
     Profile() {}
+    /**
+     * @fn Profile::Profile
+     * @brief Construct new profile
+     * @param name the local profile's name
+     * @param key_id A PGP key identifier from the local keychain used for
+     * encryption of this profile
+     */
     Profile(std::string name, std::string key_id);
     
     ~Profile();
@@ -310,13 +358,17 @@ public:
     
     
     /**
-     * @fn Profile::get_ustore
-     * @brief Returns this profile's name
+     * @fn Profile::profilename
+     * @return Returns this profile's name
      */
     std::string profilename() {
         return name;
     }
     
+    /**
+     * @fn Profile::profile_keyid
+     * @return Returns this profile's associated PGP key
+     */
     std::string profile_keyid() {
         return pgp_keyid;
     }

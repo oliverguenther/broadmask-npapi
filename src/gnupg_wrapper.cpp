@@ -405,13 +405,12 @@ gpgme_ctx_t create_gpg_context() {
     gpgme_ctx_t ctx;
     gpgme_error_t err;
     
-    setlocale (LC_ALL, ""); 
+    setlocale (LC_ALL, "");
+    gpgme_check_version (NULL);
     gpgme_set_locale (NULL, LC_CTYPE, setlocale (LC_CTYPE, NULL));
 #ifdef LC_MESSAGES
     gpgme_set_locale (NULL, LC_MESSAGES, setlocale (LC_MESSAGES, NULL));
 #endif
-    
-    gpgme_check_version (NULL);
     
     err = gpgme_new (&ctx);
     if (err) {

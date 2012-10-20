@@ -1,6 +1,15 @@
 #ifndef H_BES_SENDER
 #define H_BES_SENDER
 
+/**
+ * @file   BES_sender.hpp
+ * @Author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Implements the BM-BE sending instance
+ *
+ *
+ */
+
 #include <map>
 #include <deque>
 #include <vector>
@@ -22,9 +31,20 @@
 // Include AE scheme wrapper
 #include "BDEM/ae_wrapper.hpp"
 
+/**
+ * @class  BES_sender BES_sender.hpp
+ * @brief  Implements the BM-BE sending instance
+ *
+ */
 class BES_sender : public Instance  {
     
-public: 
+public:
+    /**
+     * @brief Initialize a new BES_sender instance
+     * @param gid A globally unique std::string identifier
+     * @param num_users The upper limitation of participants for this instance.
+     *
+     */
     BES_sender(std::string gid, int num_users);            
     ~BES_sender();
     
@@ -32,13 +52,16 @@ public:
     
     /**
      * Encrypt using Broadcast system
-     * @param S receivers of the message
-     * @param data binary data to encrypt
+     * @param[out] cts Pointer to bes_ciphertext_t, which is allocated and returned with the ciphertext
+     * @param[in] S receivers of the message
+     * @param[in] data binary data to encrypt
      */
     void bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& S, std::string& data);
     
     /**
      * Decrypt ciphertext using Broadcast system
+     * @param[out] recovered_pts  AE_Plaintext pointer, which is allocated and returned with the plaintext
+     * @param[in], cts The ciphertext struct data to decrypt
      */
     ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts);
     
@@ -53,6 +76,7 @@ public:
     /**
      * Return the public params required to create a receiving session
      * for this particular system (i.e., [N, PK])
+     * @param os An std::ostream output stream to write to
      */
     void public_params_to_stream(std::ostream& os);
      
@@ -78,6 +102,9 @@ public:
      */
     int member_id(std::string id);
 
+    /**
+     * Return upper limit of participants for this instance,
+     */
     int max_users() {
         return N;
     }

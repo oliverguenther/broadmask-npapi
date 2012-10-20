@@ -24,6 +24,17 @@
 #ifndef H_PROFILE_MANAGER
 #define H_PROFILE_MANAGER
 
+/**
+ * @file   ProfileManager.hpp
+ * @Author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Entrypoint to Profile Management
+ *
+ * The ProfileManager persists local profiles to disk, handling PGP encryption
+ * and serialization. It provides a cache to unlocked profiles.
+ *
+ */
+
 #include "Profile.hpp"
 #include <map>
 
@@ -35,7 +46,13 @@
 // Boost Shared pointers
 #include <boost/shared_ptr.hpp>
 
-
+/**
+ * @class ProfileManager ProfileManager.h
+ * @brief Entrypoint to Profile Management
+ *
+ * The ProfileManager persists local profiles to disk, handling PGP encryption
+ * and serialization. It provides a cache to unlocked profiles.
+ */
 class ProfileManager  {
     
 public:
@@ -49,6 +66,10 @@ public:
      */    
     FB::VariantMap get_stored_profiles();
     
+    /**
+     * @fn ProfileManager::get_last_profile
+     * @brief Returns last active (i.e., unlocked) profile name, if existent
+     */
     std::string get_last_profile() {
         return last_profile;
     }
@@ -77,7 +98,14 @@ public:
      * Used before destructing the ProfileManager object, to store the latest state
      */   
     void store_active();
-       
+    
+    
+    /**
+     * @fn ProfileManager::add_profile
+     * @brief Add new (empty) profile to ProfileManager
+     * @param name The profile name
+     * @param keyid Associated PGP key identifier or fingerprint
+     */
     void add_profile(std::string name, std::string keyid) {
         
         // Insert profile only if no such key exists
@@ -86,6 +114,12 @@ public:
         }
     }
     
+    /**
+     * @fn ProfileManager::delete_profile
+     * @brief Remove a profile from ProfileManager
+     *
+     * Removing a profile will first unlock it.
+     */
     FB::VariantMap delete_profile(FB::DOM::WindowPtr window, std::string profilename);
     
     

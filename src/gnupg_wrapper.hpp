@@ -21,9 +21,18 @@
  * gnupg_wrapper.hpp
  */
 
-
 #ifndef H_GNUPG_WRAPPER
 #define H_GNUPG_WRAPPER
+
+/**
+ * @file   gnupg_wrapper.hpp
+ * @Author Oliver Guenther (mail@oliverguenther.de)
+ * @date   September 2012
+ * @brief  Provides access to the gpgme_* API
+ *
+ * The gnupg_wrapper is used for encrypting, decrypting and
+ * local key lookup using the GPGME library.
+ */
 
 // JSAPI
 #ifndef NO_PLUGIN
