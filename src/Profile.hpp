@@ -43,9 +43,9 @@
 
 // Instance types
 #include "Instance.hpp"
-#include "BES_receiver.hpp"
-#include "BES_sender.hpp"
-#include "SK_Instance.hpp"
+#include "BM_BE.hpp"
+#include "BM_BE_sender.hpp"
+#include "BM_SK.hpp"
 
 // ptr
 #include <boost/shared_ptr.hpp>
@@ -80,9 +80,9 @@ typedef boost::shared_ptr<Profile> profile_ptr;
 // http://stackoverflow.com/questions/3396330/where-to-put-boost-class-export-for-boostserialization
 
 #define M_BOOST_REG_DERIVED(archive) \
-archive.register_type(static_cast<BES_sender*>(NULL)); \
-archive.register_type(static_cast<BES_receiver*>(NULL)); \
-archive.register_type(static_cast<SK_Instance*>(NULL));
+archive.register_type(static_cast<BM_BE_Sender*>(NULL)); \
+archive.register_type(static_cast<BM_BE*>(NULL)); \
+archive.register_type(static_cast<BM_SK*>(NULL));
 
 /**
  * @struct InstanceStore
@@ -304,7 +304,7 @@ public:
      */
     void start_receiver_instance(std::string id, std::string name, int N, std::string pubdata_b64, std::string private_key_b64);
     
-    void add_receiver_instance(BES_receiver *instance);
+    void add_receiver_instance(BM_BE *instance);
     
     
     /**

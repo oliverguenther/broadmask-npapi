@@ -1,20 +1,17 @@
-#ifndef H_BES_SENDER
-#define H_BES_SENDER
+#ifndef H_BM_BE_sender
+#define H_BM_BE_sender
 
 /**
- * @file   BES_sender.hpp
+ * @file   BM_BE_sender.hpp
  * @Author Oliver Guenther (mail@oliverguenther.de)
  * @date   September 2012
- * @brief  Implements the BM-BE sending instance
+ * @brief  Extends BM-BE instance for sending new content
  *
  *
  */
-
-#include <map>
+#include "BM_BE.hpp"
 #include <deque>
 #include <vector>
-#include "Instance.hpp"
-#include "streamhelpers.hpp"
 
 // serialization
 #include <boost/archive/text_oarchive.hpp>
@@ -32,23 +29,23 @@
 #include "BDEM/ae_wrapper.hpp"
 
 /**
- * @class  BES_sender BES_sender.hpp
- * @brief  Implements the BM-BE sending instance
+ * @class  BM_BE_Sender BM_BE_sender.hpp
+ * @brief  Extends BM-BE instance for sending new content
  *
  */
-class BES_sender : public Instance  {
+class BM_BE_Sender : public BM_BE  {
     
 public:
     /**
-     * @brief Initialize a new BES_sender instance
+     * @brief Initialize a new BM_BE_Sender instance
      * @param gid A globally unique std::string identifier
      * @param num_users The upper limitation of participants for this instance.
      *
      */
-    BES_sender(std::string gid, int num_users);            
-    ~BES_sender();
+    BM_BE_Sender(std::string gid, int num_users);
+    ~BM_BE_Sender();
     
-    instance_types type() { return BROADMASK_INSTANCE_BES_SENDER; }
+    instance_types type() { return BROADMASK_INSTANCE_BM_BE_SENDER; }
     
     /**
      * Encrypt using Broadcast system
@@ -59,14 +56,6 @@ public:
     void bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& S, std::string& data);
     
     /**
-     * Decrypt ciphertext using Broadcast system
-     * @param[out] recovered_pts  AE_Plaintext pointer, which is allocated and returned with the plaintext
-     * @param[in], cts The ciphertext struct data to decrypt
-     */
-    ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts);
-    
-    
-    /** 
      * Return the keypair (i, d_i) for the userid that is associated with index i
      * @param a struct containing i and d_i
      * @param userID userid to receive key
@@ -79,7 +68,7 @@ public:
      * @param os An std::ostream output stream to write to
      */
     void public_params_to_stream(std::ostream& os);
-     
+    
     
     /**
      * Adds a member to this system
@@ -101,7 +90,7 @@ public:
      * @return memberid (>= 0) when id is member in this system, -1 otherwise
      */
     int member_id(std::string id);
-
+    
     /**
      * Return upper limit of participants for this instance,
      */
@@ -121,65 +110,37 @@ public:
      */
     void restore();
     
-    /**
-     * BES public global params
-     */
-    bkem_global_params_t gbs;
-        
-    
 private:
-    
-    
-    /**
-     * Max users
-     */
-    int N;
     
     /**
      * BES encryption scheme
      */
     bkem_system_t sys;
-    
-    /**
-     * The sender's private key to decrypt all messages
-     */
-    bes_privkey_t SK;
-    
+       
     /*
      * IDs available in the system
      */
     std::deque<int> availableIDs;
     
     /*
-     * Stores internal state (after BES_sender::store is called)
+     * Stores internal state (after BM_BE_Sender::store is called)
      * and is serialized by Boost::Serialization
      */
     std::string stored_state;
-    
-    /** 
-     * Derivate a symmetric encryption key to be used within subset S
-     * @param[out] key symmetric key of size keylen
-     * @param[in] keylen length input for KDF
-     * @param[in] bes_key element_t key from bes instance
-     */
-    void derivate_encryption_key(unsigned char *key, size_t keylen, element_t bes_key);
-    
+      
     
     //
     // Boost class serialization, independent from BES serialization
     //
     
     // Default Constructor, required for (De-)Serialization
-    BES_sender() : Instance() {}
+    BM_BE_Sender() : BM_BE() {}
     
     friend class boost::serialization::access;
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
-        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
-        ar & N;
-        ar & gid;
-        ar & members;
+        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<BM_BE>(*this));
         ar & availableIDs;
         ar & stored_state;
     }

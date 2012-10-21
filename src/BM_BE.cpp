@@ -1,4 +1,4 @@
-#include "BES_receiver.hpp"
+#include "BM_BE.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -18,16 +18,15 @@ using CryptoPP::SHA256;
 namespace fs = boost::filesystem;
 using namespace std;
 
-
-BES_receiver::BES_receiver(string groupid, int max_users, string public_data, string private_key) : Instance(groupid) {
-
+BM_BE::BM_BE(string groupid, int max_users, string public_data, string private_key) : Instance(groupid) {
+    
     istringstream public_params(public_data);
     
     int element_size;
     public_params >> element_size;
     public_params >> keylen;
     public_params.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-
+    
     N = max_users;
     members = std::map<std::string, int>();
     
@@ -39,26 +38,26 @@ BES_receiver::BES_receiver(string groupid, int max_users, string public_data, st
     public_key_from_stream(&PK, gbs, public_params, element_size);
     
     // Read private key
-    istringstream skss(private_key);    
+    istringstream skss(private_key);
     
     private_key_from_stream(&SK, gbs, skss, element_size);
 }
 
-int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key) {
-
+int BM_BE::derivate_decryption_key(unsigned char *key, element_t raw_key) {
+    
     int keysize = element_length_in_bytes(raw_key);
     unsigned char *buf = new unsigned char[keysize];
     
     element_to_bytes(buf, raw_key);
     
     const byte salt[53] = {
-        0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 
-        0x48, 0x69, 0x64, 0x69, 0x6E, 0x67, 0x20, 0x69, 0x6E, 0x20, 0x4F, 0x6E, 0x6C, 0x69, 0x6E, 0x65, 0x20, 0x53, 0x6F, 0x63, 
+        0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20,
+        0x48, 0x69, 0x64, 0x69, 0x6E, 0x67, 0x20, 0x69, 0x6E, 0x20, 0x4F, 0x6E, 0x6C, 0x69, 0x6E, 0x65, 0x20, 0x53, 0x6F, 0x63,
         0x69, 0x61, 0x6C, 0x20, 0x4E, 0x65, 0x74, 0x77, 0x6F, 0x72, 0x6B, 0x73, 0x0A
     };
     
     try {
-    
+        
         CryptoPP::HMACKeyDerivationFunction<SHA256> hkdf;
         hkdf.DeriveKey(
                        (byte*) key, AE_KEY_LENGTH, // Derived key
@@ -77,7 +76,7 @@ int BES_receiver::derivate_decryption_key(unsigned char *key, element_t raw_key)
     
 }
 
-ae_error_t BES_receiver::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts) {
+ae_error_t BM_BE::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts) {
     
     element_t raw_key;
     get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
@@ -91,7 +90,7 @@ ae_error_t BES_receiver::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertex
     // Derive header raw data for authentication
     header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
     
-    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);    
+    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);
     
     *recovered_pts = pts;
     delete header;
@@ -99,7 +98,50 @@ ae_error_t BES_receiver::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertex
     return result;
 }
 
-void BES_receiver::restore() {
+//ae_error_t BM_BE::ae_encrypt(AE_Ciphertext** ae_cts, bes_ciphertext_t& cts, AE_Plaintext* pts) {
+//    
+//    element_t raw_key;
+//    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
+//    
+//    unsigned char derived_key[AE_KEY_LENGTH];
+//    derivate_decryption_key(derived_key, raw_key);
+//    
+//    // Derive header raw data for authentication
+//    AE_Plaintext* header = new AE_Plaintext;
+//    unsigned char *buf;
+//    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+//    header->plaintext = buf;
+//    header->len = hdr_size;
+//    
+//    ae_error_t result = encrypt_aead(ae_cts, derived_key, pts, header);
+//    
+//    delete header;
+//    return result;
+//}
+//
+//ae_error_t BM_BE::ae_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts, AE_Ciphertext* ae_cts) {
+//    
+//    element_t raw_key;
+//    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
+//    
+//    unsigned char derived_key[AE_KEY_LENGTH];
+//    derivate_decryption_key(derived_key, raw_key);
+//    
+//    // Derive header raw data for authentication
+//    AE_Plaintext* header = new AE_Plaintext;
+//    unsigned char *buf;
+//    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+//    header->plaintext = buf;
+//    header->len = hdr_size;
+//    
+//    
+//    ae_error_t result = decrypt_aead(recovered_pts, derived_key, ae_cts, header);
+//    
+//    delete header;
+//    return result;
+//}
+
+void BM_BE::restore() {
     
     std::istringstream is (stored_state);
     
@@ -123,7 +165,7 @@ void BES_receiver::restore() {
     
     int i;
     // g_i
-    PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
+    PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t));
     for (i = 0; i < 2*gbs->B; ++i) {
         element_from_stream(PK->g_i[i], gbs, is, element_size);
     }
@@ -143,7 +185,7 @@ void BES_receiver::restore() {
     element_from_stream(SK->privkey, gbs, is, element_size);
 }
 
-void BES_receiver::store() {
+void BM_BE::store() {
     
     std::ostringstream os;
     
@@ -178,7 +220,7 @@ void BES_receiver::store() {
     
 }
 
-BES_receiver::~BES_receiver() {
+BM_BE::~BM_BE() {
     free_pubkey(PK, gbs);
     delete SK;
     free_global_params(gbs);

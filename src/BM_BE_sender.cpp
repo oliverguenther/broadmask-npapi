@@ -1,4 +1,4 @@
-#include "BES_sender.hpp"
+#include "BM_BE_Sender.hpp"
 #include <iostream>
 #include <sstream>
 #include <iomanip>
@@ -23,7 +23,7 @@
 namespace fs = boost::filesystem;
 using namespace std;
 
-/**
+/*
  * struct for the std::generate method to produce
  * free identifiers from 1 to N-1
  */
@@ -33,9 +33,9 @@ struct inc_index {
     int operator()() {return cur++;}
 } FillIndex;
 
-BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
+BM_BE_Sender::BM_BE_Sender(string groupid, int num_users) {
     
-    
+    gid = groupid;
     N = num_users;
     members = std::map<std::string, int>();
     setup_global_system(&gbs, params, num_users);
@@ -50,11 +50,12 @@ BES_sender::BES_sender(string gid, int num_users) : Instance(gid) {
     // Add myself as 0. user
     add_member(SENDER_MEMBER_ID);
     get_private_key(&SK, SENDER_MEMBER_ID);
+    PK = sys->PK;
     
 }
 
-int BES_sender::add_member(std::string id) {
-
+int BM_BE_Sender::add_member(std::string id) {
+    
     int current_id = member_id(id);
     if (current_id != -1)
         return current_id;
@@ -66,30 +67,30 @@ int BES_sender::add_member(std::string id) {
     availableIDs.pop_front();
     
     members.insert(pair<string, int> (id, sys_id));
-    return sys_id;    
+    return sys_id;
 }
 
 
-void BES_sender::remove_member(std::string id) {
+void BM_BE_Sender::remove_member(std::string id) {
     map<string, int>::iterator it = members.find(id);
     
     if (it != members.end()) {
         availableIDs.push_back(it->second);
-        members.erase(it);        
+        members.erase(it);
     }
 }
 
-int BES_sender::member_id(std::string id) {
+int BM_BE_Sender::member_id(std::string id) {
     map<string, int>::iterator it = members.find(id);
     
     if (it != members.end()) {
-        return it->second;     
+        return it->second;
     } else {
         return -1;
     }
 }
 
-void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
+void BM_BE_Sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
     int id = member_id(userID);
     if (id == -1)
         return;
@@ -104,16 +105,16 @@ void BES_sender::get_private_key(bes_privkey_t* sk_ptr, std::string userID) {
 }
 
 
-void BES_sender::public_params_to_stream(std::ostream& os) {
+void BM_BE_Sender::public_params_to_stream(std::ostream& os) {
     int element_size = element_length_in_bytes(sys->PK->g);
     os << element_size << " ";
     os << AE_KEY_LENGTH << "\n";
     
     public_key_to_stream(sys->PK, gbs, os);
 }
-    
 
-void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& pdata) {
+
+void BM_BE_Sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::string>& receivers, std::string& pdata) {
     
     bes_ciphertext_t ct = new bes_ciphertext_s;
     
@@ -124,9 +125,9 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
         S.push_back(SENDER_MEMBER_ID);
     
     // Receivers
-    ct->num_receivers = S.size();    
+    ct->num_receivers = S.size();
     ct->receivers = new int[ct->num_receivers];
-        
+    
     int i = 0;
     for (std::vector<string>::const_iterator it = S.begin(); it != S.end(); ++it) {
         int id = member_id(*it);
@@ -151,7 +152,7 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
     
     // Key derivation
     unsigned char sym_key[AE_KEY_LENGTH];
-    derivate_encryption_key(sym_key, AE_KEY_LENGTH, keypair->K);
+    derivate_decryption_key(sym_key, keypair->K);
     
     
     // AES encrpytion
@@ -182,61 +183,13 @@ void BES_sender::bes_encrypt(bes_ciphertext_t *cts, const std::vector<std::strin
     *cts = ct;
 }
 
-ae_error_t BES_sender::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts) {
-    
-    element_t raw_key;
-    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, sys->PK);
-    
-    unsigned char derived_key[AE_KEY_LENGTH];
-    derivate_encryption_key(derived_key, AE_KEY_LENGTH, raw_key);
-    
-    AE_Plaintext* pts;
-    AE_Plaintext* header = new AE_Plaintext;
-    
-    
-    // Derive header raw data for authentication
-    header->len = encryption_header_to_bytes(&header->plaintext, cts->HDR, gbs->A + 1);
-    
-    ae_error_t result = decrypt_aead(&pts, derived_key, cts->ae_ct, header);
-    
-    *recovered_pts = pts;
-    delete header;
-    
-    return result;
-}
-
-
-void BES_sender::derivate_encryption_key(unsigned char *key, size_t keylen, element_t bes_key) {
-
-    int keysize = element_length_in_bytes(bes_key);
-    unsigned char *buf = new unsigned char[keysize];
-    
-    element_to_bytes(buf, bes_key);
-    
-    const byte salt[53] = {
-        0x42, 0x72, 0x6F, 0x61, 0x64, 0x6D, 0x61, 0x73, 0x6B, 0x20, 0x2D, 0x20, 0x43, 0x6F, 0x6E, 0x74, 0x65, 0x6E, 0x74, 0x20, 
-        0x48, 0x69, 0x64, 0x69, 0x6E, 0x67, 0x20, 0x69, 0x6E, 0x20, 0x4F, 0x6E, 0x6C, 0x69, 0x6E, 0x65, 0x20, 0x53, 0x6F, 0x63, 
-        0x69, 0x61, 0x6C, 0x20, 0x4E, 0x65, 0x74, 0x77, 0x6F, 0x72, 0x6B, 0x73, 0x0A
-    };
-    
-    CryptoPP::HMACKeyDerivationFunction<CryptoPP::SHA256> hkdf;
-    hkdf.DeriveKey(
-                   key, keylen, // Derived key
-                   (const byte*) buf, keysize, // input key material (ikm)
-                   salt, 53, // Salt
-                   NULL, 0 // context information
-                   );
-    
-    delete[] buf;
-}
-
-void BES_sender::restore() {
+void BM_BE_Sender::restore() {
     
     std::stringstream is (stored_state);
     
     // Restore global parameters
     setup_global_system(&gbs, params, N);
-      
+    
     if (!is.good()) {
         cout << "Unable to open instance file" << endl;
         return;
@@ -254,35 +207,20 @@ void BES_sender::restore() {
     sys = (bkem_system_t) pbc_malloc(sizeof(struct bkem_system_s));
     
     // Public Key
-    sys->PK = (pubkey_t) pbc_malloc(sizeof(struct pubkey_s));
-    
-    element_from_stream(sys->PK->g, gbs, is, element_size);
-    
-    int i;
-    // g_i
-    sys->PK->g_i = (element_t*) pbc_malloc((2 * gbs->B) * sizeof(element_t)); 
-    for (i = 0; i < 2*gbs->B; ++i) {
-        element_from_stream(sys->PK->g_i[i], gbs, is, element_size);
-    }
-    
-    // v_i
-    sys->PK->v_i = (element_t*) pbc_malloc(gbs->A * sizeof(element_t));
-    for (i = 0; i < gbs->A; ++i) {
-        element_from_stream(sys->PK->v_i[i], gbs, is, element_size);
-    }
+    public_key_from_stream(&PK, gbs, is, element_size);
     
     // Restore private keys
-    sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));        
-    for (i = 0; i < (int) N; ++i) {
+    sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));
+    for (int i = 0; i < (int) N; ++i) {
         element_from_stream(sys->d_i[i], gbs, is, element_size);
     }
     
     // Restore my own private key
     private_key_from_stream(&SK, gbs, is, element_size);
-       
+    
 }
 
-void BES_sender::store() {
+void BM_BE_Sender::store() {
     
     std::ostringstream os;
     
@@ -294,22 +232,10 @@ void BES_sender::store() {
     os << element_size << endl;
     
     // Store Public Key
-    // g
-    element_to_stream(sys->PK->g, os);
-    
-    int i;
-    // g_i
-    for (i = 0; i < 2*gbs->B; ++i) {
-        element_to_stream(sys->PK->g_i[i], os);
-    }
-    
-    // v_i
-    for (i = 0; i < gbs->A; ++i) {
-        element_to_stream(sys->PK->v_i[i], os);
-    }
+    public_key_to_stream(PK, gbs, os);
     
     // Store private keys
-    for (i = 0; i < (int) N; ++i) {
+    for (int i = 0; i < (int) N; ++i) {
         element_to_stream(sys->d_i[i], os);
     }
     
@@ -321,9 +247,9 @@ void BES_sender::store() {
     os.clear();
 }
 
-  
-    
-BES_sender::~BES_sender() {
+
+
+BM_BE_Sender::~BM_BE_Sender() {
     free_bkem_system(sys, gbs);
     availableIDs.clear();
     members.clear();

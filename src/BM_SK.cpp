@@ -1,4 +1,4 @@
-#include "SK_Instance.hpp"
+#include "BM_SK.hpp"
 #include <sstream>
 
 #include "Base64.h"
@@ -8,7 +8,7 @@
 using CryptoPP::AutoSeededRandomPool;
 
 
-SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {
+BM_SK::BM_SK(std::string groupid) : Instance(groupid) {
     
     members = std::map<std::string, int>();
     
@@ -22,7 +22,7 @@ SK_Instance::SK_Instance(std::string groupid) : Instance(groupid) {
 }
 
 
-SK_Instance::SK_Instance(std::string groupid, std::string key_b64) : Instance(groupid) {
+BM_SK::BM_SK(std::string groupid, std::string key_b64) : Instance(groupid) {
     
     // Clear key
     key.clear();
@@ -38,21 +38,21 @@ SK_Instance::SK_Instance(std::string groupid, std::string key_b64) : Instance(gr
 }
 
 
-SK_Instance::~SK_Instance() {
+BM_SK::~BM_SK() {
     key.clear();
     members.clear();
 }
 
-std::vector<unsigned char> SK_Instance::get_symmetric_key() {
+std::vector<unsigned char> BM_SK::get_symmetric_key() {
     return key;
 }
 
 
-ae_error_t SK_Instance::encrypt(AE_Ciphertext** cts, AE_Plaintext* pts) {
+ae_error_t BM_SK::encrypt(AE_Ciphertext** cts, AE_Plaintext* pts) {
     return encrypt_ae(cts, &key[0], pts);
 }
 
 
-ae_error_t SK_Instance::decrypt(AE_Plaintext** pts, AE_Ciphertext* sk_ct) {
+ae_error_t BM_SK::decrypt(AE_Plaintext** pts, AE_Ciphertext* sk_ct) {
     return decrypt_ae(pts, &key[0], sk_ct);    
 }

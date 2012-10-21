@@ -36,8 +36,8 @@ using boost::format;
 
 // Instances
 #include "Instance.hpp"
-#include "BES_sender.hpp"
-#include "BES_receiver.hpp"
+#include "BM_BE_sender.hpp"
+#include "BM_BE.hpp"
 
 #include "utils.h"
 #include "gnupg_wrapper.hpp"
@@ -170,7 +170,7 @@ FB::VariantMap BroadmaskAPI::remove_member(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
+    BM_BE_Sender *bci = dynamic_cast<BM_BE_Sender*>(p->load_instance(gid));
     if (!bci) {
         result["error"] = true;
         format fmter = format("Instance with gid '%1%' not found") % gid;
@@ -218,7 +218,7 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *sender = dynamic_cast<BES_sender*>(p->load_instance(gid));
+    BM_BE_Sender *sender = dynamic_cast<BM_BE_Sender*>(p->load_instance(gid));
     if (!sender) {
         result["error"] = true;
         format fmter = format("Instance with gid '%1%' not found") % gid;
@@ -243,7 +243,7 @@ FB::VariantMap BroadmaskAPI::get_bes_public_params(std::string gid) {
 FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
     
     M_INIT_AND_UNLOCK_PROFILE
-    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
+    BM_SK *ski = dynamic_cast<BM_SK*>(p->load_instance(gid));
     
     if (!ski) {
         result["error"] = true;
@@ -268,7 +268,7 @@ FB::VariantMap BroadmaskAPI::get_symmetric_key(std::string gid) {
 FB::VariantMap BroadmaskAPI::get_member_sk(std::string gid, std::string id) {
     
     M_INIT_AND_UNLOCK_PROFILE
-    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
+    BM_BE_Sender *bci = dynamic_cast<BM_BE_Sender*>(p->load_instance(gid));
     
     if (!bci) {
         result["error"] = true;
@@ -309,9 +309,9 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
     instance_types type = p->instance_type(gid);
 
     switch (type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
+        case BROADMASK_INSTANCE_BM_BE_SENDER:
         {
-            BES_sender *instance = dynamic_cast<BES_sender*>(p->load_instance(gid));
+            BM_BE_Sender *instance = dynamic_cast<BM_BE_Sender*>(p->load_instance(gid));
             if (!instance) {
                 result["error"] = true;
                 format fmter = format("Could not load BM-BE sender instance with group id'%1%'") % gid;
@@ -327,7 +327,7 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
             return bes_encrypt_b64(gid, receivers, data, image);
             break;
         }
-        case BROADMASK_INSTANCE_BES_RECEIVER:
+        case BROADMASK_INSTANCE_BM_BE:
         {
             result["error"] = true;
             format fmter = format("Encryption with BM-BE receiver instance '%1%' not possible") % gid;
@@ -352,6 +352,7 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
     
 }
 
+
 FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool image) {
     
     M_INIT_AND_UNLOCK_PROFILE
@@ -359,8 +360,8 @@ FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool
     instance_types type = p->instance_type(gid);
     
     switch (type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
-        case BROADMASK_INSTANCE_BES_RECEIVER:
+        case BROADMASK_INSTANCE_BM_BE_SENDER:
+        case BROADMASK_INSTANCE_BM_BE:
         {
             return bes_decrypt_b64(gid, data, image);
         }
@@ -386,7 +387,7 @@ FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    BES_sender *bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
+    BM_BE_Sender *bci = dynamic_cast<BM_BE_Sender*>(p->load_instance(gid));
     
     if (!bci) {
         result["error"] = true;
@@ -423,7 +424,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
     M_INIT_AND_UNLOCK_PROFILE
     
     instance_types type = p->instance_type(gid);
-    if (type != BROADMASK_INSTANCE_BES_SENDER && type != BROADMASK_INSTANCE_BES_RECEIVER) {
+    if (type != BROADMASK_INSTANCE_BM_BE_SENDER && type != BROADMASK_INSTANCE_BM_BE) {
         FB::VariantMap result;
         result["error"] = true;
         format fmter = format("BM-BE instance with gid '%1%' not found") % gid;
@@ -449,23 +450,10 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
     bes_ciphertext_t ct;
     std::stringstream ctss(ct_str);
     switch (type) {
-        case BROADMASK_INSTANCE_BES_SENDER:
+        case BROADMASK_INSTANCE_BM_BE_SENDER:
+        case BROADMASK_INSTANCE_BM_BE:
         {
-            BES_sender* bci = dynamic_cast<BES_sender*>(p->load_instance(gid));
-            ciphertext_from_stream(&ct, bci->gbs, ctss);    
-            AE_Plaintext *pts;
-            ae_error_t r = bci->bes_decrypt(&pts, ct);
-            ae_error_to_map(result, r);
-            if (!r.error) {
-                result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
-                delete pts;
-            }            
-            free_bes_ciphertext(ct, bci->gbs);
-            break;
-        }
-        case BROADMASK_INSTANCE_BES_RECEIVER:
-        {
-            BES_receiver* bci = dynamic_cast<BES_receiver*>(p->load_instance(gid));
+            BM_BE* bci = dynamic_cast<BM_BE*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             AE_Plaintext *pts;
             ae_error_t r = bci->bes_decrypt(&pts, ct);
@@ -492,7 +480,7 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
 FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, bool image) {
     M_INIT_AND_UNLOCK_PROFILE
     
-    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
+    BM_SK *ski = dynamic_cast<BM_SK*>(p->load_instance(gid));
 
     if (!ski) {
         result["error"] = true;
@@ -539,7 +527,7 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
     
     M_INIT_AND_UNLOCK_PROFILE
     
-    SK_Instance *ski = dynamic_cast<SK_Instance*>(p->load_instance(gid));
+    BM_SK *ski = dynamic_cast<BM_SK*>(p->load_instance(gid));
     if (!ski) {
         result["error"] = true;
         format fmter = format("BM-SK instance with gid '%1%' not found") % gid;

@@ -1,13 +1,13 @@
-#ifndef H_BES_RECEIVER
-#define H_BES_RECEIVER
+#ifndef H_BM_BE
+#define H_BM_BE
 
 /**
- * @file   BES_receiver.hpp
+ * @file   BM_BE.hpp
  * @Author Oliver Guenther (mail@oliverguenther.de)
  * @date   September 2012
  * @brief  Implements the BM-BE receiving instance
  *
- * 
+ *
  */
 
 #include <map>
@@ -29,18 +29,32 @@ extern "C" {
 #include <boost/serialization/export.hpp>
 
 /**
- * @class BES_receiver BES_receiver.hpp
+ * @class BM_BE BM_BE.hpp
  * @brief Implements the BM-BE receiving instance
  *
- * 
+ *
  */
-class BES_receiver : public Instance  {
+class BM_BE : public Instance  {
     
-public:     
-    BES_receiver(std::string groupid, int N, std::string public_data, std::string private_key);    
-    ~BES_receiver();
+public:
     
-    instance_types type() { return BROADMASK_INSTANCE_BES_RECEIVER; }
+    /**
+     * @brief Initialize a BM_BE instance, given BM-BE PK and SK structs
+     *
+     * This constructor is mainly used when initializing a (receiving)
+     * BM-BE instance from the profile owner.
+     */
+    BM_BE(std::string groupid, int max_users, pubkey_t& pk, bes_privkey_t& sk) :         Instance(groupid), N(max_users), SK(sk), PK(pk) {}
+    
+    /**
+     * @brief Initialize a BM_BE instance, given serialized BM-BE PK and SK structs
+     *
+     * This constructor is mainly used when initializing a new receiving
+     */
+    BM_BE(std::string groupid, int N, std::string public_data, std::string private_key);
+    ~BM_BE();
+    
+    instance_types type() { return BROADMASK_INSTANCE_BM_BE; }
     
     /**
      * Decrypt using Broadcast system
@@ -51,19 +65,17 @@ public:
      */
     ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& ct);
     
-    
     /**
      * Store BES state to internal state string
      */
     void store();
-        
     
     /**
      * Restores saved BES state
      */
     void restore();
     
-        
+    
     /**
      * BES public global params
      */
@@ -73,8 +85,7 @@ public:
         return N;
     }
     
-private:
-    
+protected:
     
     /**
      * Max users
@@ -105,16 +116,16 @@ private:
     
     /**
      * Uses BKEM to derive symmetric key sk
-     */ 
+     */
     int derivate_decryption_key(unsigned char *key, element_t raw_key);
-       
+    
     
     //
     // Boost class serialization, independent from BES serialization
     //
     
     // Default constructor, required for De-Serialization
-    BES_receiver() : Instance() {}
+    BM_BE() : Instance() {}
     
     
     friend class boost::serialization::access;
@@ -122,9 +133,6 @@ private:
     void serialize(Archive & ar, const unsigned int version)
     {
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
-        ar & N;
-        ar & gid;
-        ar & members;
         ar & keylen;
         ar & stored_state;
     }

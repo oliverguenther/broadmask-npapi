@@ -50,8 +50,8 @@ FB::VariantMap Profile::get_stored_instances() {
         instmap["name"] = inst->name;
         instmap["type"] = inst->type;
         
-        if (inst->type == BROADMASK_INSTANCE_BES_SENDER 
-            || inst->type == BROADMASK_INSTANCE_BES_RECEIVER)
+        if (inst->type == BROADMASK_INSTANCE_BM_BE_SENDER 
+            || inst->type == BROADMASK_INSTANCE_BM_BE)
             instmap["max_users"] = inst->max_users;        
         keys[it->first] = instmap;
     }
@@ -63,7 +63,7 @@ FB::VariantMap Profile::get_stored_instances() {
 
 std::string Profile::start_sender_instance(string id, string name, int N) {
     
-    BES_sender* instance = dynamic_cast<BES_sender*>(load_instance(id));
+    BM_BE_Sender* instance = dynamic_cast<BM_BE_Sender*>(load_instance(id));
     stringstream params;
     
     
@@ -71,7 +71,7 @@ std::string Profile::start_sender_instance(string id, string name, int N) {
     if (!instance) {
         
         // create and store instance
-        instance = new BES_sender(id, N);
+        instance = new BM_BE_Sender(id, N);
         
         // Record this instance with a new storage
         InstanceStore *store = new InstanceStore(name, instance);
@@ -89,7 +89,7 @@ std::string Profile::start_sender_instance(string id, string name, int N) {
     
 }
 
-void Profile::add_receiver_instance(BES_receiver *instance) {
+void Profile::add_receiver_instance(BM_BE *instance) {
     
     std::string id = instance->id();
     
@@ -108,7 +108,7 @@ void Profile::start_receiver_instance(string id, string name, int N, string pubd
     instance_types stored_type = instance_type(id);
     
     // Return if instance is already loaded as a sender, or as a receiver
-    if (stored_type == BROADMASK_INSTANCE_BES_SENDER || stored_type == BROADMASK_INSTANCE_BES_RECEIVER)
+    if (stored_type == BROADMASK_INSTANCE_BM_BE_SENDER || stored_type == BROADMASK_INSTANCE_BM_BE)
         return;
     
     // decode params
@@ -116,19 +116,19 @@ void Profile::start_receiver_instance(string id, string name, int N, string pubd
     string private_key = base64_decode(private_key_b64);
     
     // Create and store instance
-    BES_receiver *instance = new BES_receiver(id, N, public_params, private_key);  
+    BM_BE *instance = new BM_BE(id, N, public_params, private_key);  
     add_receiver_instance(instance);
 }
 
 void Profile::start_shared_instance(std::string id, std::string name) {
-    SK_Instance* instance = dynamic_cast<SK_Instance*>(load_instance(id));
+    BM_SK* instance = dynamic_cast<BM_SK*>(load_instance(id));
     
     if (instance) {
         return;
     }
     
     // Create shared instance, initializes new shared key
-    instance = new SK_Instance(id);
+    instance = new BM_SK(id);
     
     // Record this instance with a new storage
     InstanceStore *store = new InstanceStore(name, instance);
@@ -142,14 +142,14 @@ void Profile::start_shared_instance(std::string id, std::string name) {
 }
 
 void Profile::start_shared_instance_withkey(std::string id, std::string name, std::string key_b64) {
-    SK_Instance* instance = dynamic_cast<SK_Instance*>(load_instance(id));
+    BM_SK* instance = dynamic_cast<BM_SK*>(load_instance(id));
     
     if (instance) {
         // remove instance
         remove_instance(id);
     }
     
-    instance = new SK_Instance(id, key_b64);
+    instance = new BM_SK(id, key_b64);
     
     // Record this instance with a new storage
     InstanceStore *store = new InstanceStore(name, instance);

@@ -23,8 +23,8 @@
  */
 typedef enum {
     ERR_NO_INSTANCE = 0,
-    BROADMASK_INSTANCE_BES_SENDER = 1,
-    BROADMASK_INSTANCE_BES_RECEIVER = 2,
+    BROADMASK_INSTANCE_BM_BE_SENDER = 1,
+    BROADMASK_INSTANCE_BM_BE = 2,
     BROADMASK_INSTANCE_SK = 4 
 } instance_types;
 
@@ -95,7 +95,7 @@ public:
      */
     virtual int add_member(std::string id) {
         // default: map all users to 0
-        // BM-BE sending instances (BES_sender) override this behavior for pseudonyms
+        // BM-BE sending instances (BM-BE_sender) override this behavior for pseudonyms
         
         members.insert(std::pair<std::string, int>(id, 0));
         return 0;
