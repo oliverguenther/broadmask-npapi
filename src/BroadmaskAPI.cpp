@@ -353,7 +353,7 @@ FB::VariantMap BroadmaskAPI::encrypt_b64(std::string gid, std::string data, bool
 }
 
 
-FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool image) {
+FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool image, boost::optional<FB::VariantMap> comments) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
@@ -363,11 +363,11 @@ FB::VariantMap BroadmaskAPI::decrypt_b64(std::string gid, std::string data, bool
         case BROADMASK_INSTANCE_BM_BE_SENDER:
         case BROADMASK_INSTANCE_BM_BE:
         {
-            return bes_decrypt_b64(gid, data, image);
+            return bes_decrypt_b64(gid, data, image, comments);
         }
         case BROADMASK_INSTANCE_SK:
         {
-            return sk_decrypt_b64(gid, data, image);
+            return sk_decrypt_b64(gid, data, image, comments);
             break;
         }
         default:
@@ -418,8 +418,64 @@ FB::VariantMap BroadmaskAPI::bes_encrypt_b64(std::string gid, const std::vector<
     return result;
 }
 
+FB::VariantMap BroadmaskAPI::encrypt_comment(std::string gid, std::string post_ct, std::string comment) {
+    
+    M_INIT_AND_UNLOCK_PROFILE
+    
+    instance_types type = p->instance_type(gid);
+    
+    switch (type) {
+        case BROADMASK_INSTANCE_BM_BE_SENDER:
+        case BROADMASK_INSTANCE_BM_BE:
+        {
+            bes_ciphertext_t ct;
+            std::stringstream ctss(base64_decode(post_ct));
+            BM_BE* bci = dynamic_cast<BM_BE*>(p->load_instance(gid));
+            ciphertext_from_stream(&ct, bci->gbs, ctss);
+            
+            AE_Ciphertext *ae_cts;
+            AE_Plaintext *ae_pts = new AE_Plaintext;
+            ae_pts->plaintext = new unsigned char[comment.size()];
+            ae_pts->len = comment.size();
+            memcpy(ae_pts->plaintext, comment.data(), comment.size());
+            
+            ae_error_t r = bci->encrypt_comment(&ae_cts, ct, ae_pts);
+            
+            delete ae_pts;
+            ae_error_to_map(result, r);
+            
+            if (r.error) {
+                return result;
+            }
+            
+            // convert ciphertext struct to base64 string
+            std::ostringstream oss;
+            sk_ciphertext_to_stream(ae_cts, oss);
+            std::string cts_string = oss.str();
+            delete ae_cts;
+            result["ciphertext"] = base64_encode(cts_string);
+            break;
+        }
+        case BROADMASK_INSTANCE_SK:
+        {
+            result = sk_encrypt_b64(gid, comment, false);
+            break;
+        }
+        default:
+        {
+            result["error"] = true;
+            format fmter = format("Instance with gid '%1%' not found") % gid;
+            result["error_msg"] = fmter.str();
+            break;
+        }
+    }
+    
+    return result;
+    
+}
 
-FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_data, bool image) {
+
+FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_data, bool image, boost::optional<FB::VariantMap> comments_opt) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
@@ -456,12 +512,40 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
             BM_BE* bci = dynamic_cast<BM_BE*>(p->load_instance(gid));
             ciphertext_from_stream(&ct, bci->gbs, ctss);    
             AE_Plaintext *pts;
+            
+            // Decrypt main post
             ae_error_t r = bci->bes_decrypt(&pts, ct);
             ae_error_to_map(result, r);
             if (!r.error) {
                 result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
                 delete pts;
-            }  
+            }            
+            
+            // Decrypt comments, if existent
+            if (comments_opt) {
+                FB::VariantMap recovered_comments;
+                FB::VariantMap comments = *comments_opt;
+                std::string comment;
+                for (FB::VariantMap::const_iterator it = comments.begin(); it != comments.end(); ++it) {
+                    
+                    comment = it->second.convert_cast<std::string>();
+                    std::istringstream is(base64_decode(comment));
+                    AE_Ciphertext *comment_ct;
+                    AE_Plaintext *comment_pts;
+                    sk_ciphertext_from_stream(&comment_ct, is);
+                    r = bci->decrypt_comment(&comment_pts, ct, comment_ct);
+                    if (!r.error) {
+                        recovered_comments[it->first] = std::string(reinterpret_cast<char*>(comment_pts->plaintext), comment_pts->len);
+                        delete comment_pts;
+                    } else {
+                        FB::VariantMap comment_errors;
+                        ae_error_to_map(comment_errors, r);
+                        recovered_comments[it->first] = comment_errors;
+                    }
+                    delete comment_ct;
+                }
+                result["comments"] = recovered_comments;
+            }
             free_bes_ciphertext(ct, bci->gbs);
             break;
         }
@@ -473,7 +557,6 @@ FB::VariantMap BroadmaskAPI::bes_decrypt_b64(std::string gid, std::string ct_dat
             break;
         }
     }
-
     return result;
 }
 
@@ -523,7 +606,7 @@ FB::VariantMap BroadmaskAPI::sk_encrypt_b64(std::string gid, std::string data, b
 
 }
 
-FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64, bool image) {
+FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64, bool image, boost::optional<FB::VariantMap> comments_opt) {
     
     M_INIT_AND_UNLOCK_PROFILE
     
@@ -562,11 +645,38 @@ FB::VariantMap BroadmaskAPI::sk_decrypt_b64(std::string gid, std::string ct_b64,
     
     result["plaintext"] = std::string(reinterpret_cast<char*>(pts->plaintext), pts->len);
     
+    // Decrypt comments, if existent
+    if (comments_opt) {
+        FB::VariantMap recovered_comments;
+        FB::VariantMap comments = *comments_opt;
+        std::string comment;
+        for (FB::VariantMap::const_iterator it = comments.begin(); it != comments.end(); ++it) {
+            
+            comment = it->second.convert_cast<std::string>();
+            std::istringstream is(base64_decode(comment));
+            AE_Ciphertext *comment_ct;
+            AE_Plaintext *comment_pts;
+            sk_ciphertext_from_stream(&comment_ct, is);
+            r = ski->decrypt(&comment_pts, comment_ct);
+            if (!r.error) {
+                recovered_comments[it->first] = std::string(reinterpret_cast<char*>(comment_pts->plaintext), comment_pts->len);
+                delete comment_pts;
+            } else {
+                FB::VariantMap comment_errors;
+                ae_error_to_map(comment_errors, r);
+                recovered_comments[it->first] = comment_errors;
+            }
+            delete comment_ct;            
+        }
+        result["comments"] = recovered_comments;
+    }
+
+    
     delete pts;
     delete ct;
     return result;
 }
- 
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -751,6 +861,7 @@ m_plugin(plugin), m_host(host) {
     registerMethod("get_member_sk_gpg", make_method(this, &BroadmaskAPI::get_member_sk_gpg));
     registerMethod("encrypt_b64", make_method(this, &BroadmaskAPI::encrypt_b64));
     registerMethod("decrypt_b64", make_method(this, &BroadmaskAPI::decrypt_b64));
+    registerMethod("encrypt_comment", make_method(this, &BroadmaskAPI::encrypt_comment));
     registerMethod("bes_encrypt_b64", make_method(this, &BroadmaskAPI::bes_encrypt_b64));
     registerMethod("bes_decrypt_b64", make_method(this, &BroadmaskAPI::bes_decrypt_b64));
     registerMethod("sk_encrypt_b64", make_method(this, &BroadmaskAPI::sk_encrypt_b64));

@@ -18,6 +18,8 @@
 
 
 #include <boost/filesystem/path.hpp>
+#include <boost/optional.hpp>
+
 
 
 
@@ -106,7 +108,7 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    FB::VariantMap bes_decrypt_b64(std::string gid, std::string ct_data, bool image);
+    FB::VariantMap bes_decrypt_b64(std::string gid, std::string ct_data, bool image, boost::optional<FB::VariantMap> comments);
     
     /** 
      * @fn BroadmaskAPI::encrypt_b64
@@ -120,7 +122,7 @@ public:
      * @return encrypted binary data, base64 encoded
      */
     FB::VariantMap encrypt_b64(std::string gid, std::string ct_data, bool image);
-    
+    FB::VariantMap encrypt_comment(std::string gid, std::string post_ct, std::string comment);
     /** 
      * @fn BroadmaskAPI::decrypt_b64
      * @brief Decrypt base64 encoded binary data. Detects instance type
@@ -132,10 +134,10 @@ public:
      *
      * @return plaintext binary data, base64 encoded
      */    
-    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image);   
+    FB::VariantMap decrypt_b64(std::string gid, std::string ct_data, bool image, boost::optional<FB::VariantMap> comments);
     
     FB::VariantMap sk_encrypt_b64(std::string gid, std::string data, bool image);
-    FB::VariantMap sk_decrypt_b64(std::string gid, std::string params, bool image);
+    FB::VariantMap sk_decrypt_b64(std::string gid, std::string params, bool image, boost::optional<FB::VariantMap> comments);
     
 
     

@@ -51,6 +51,7 @@ BM_BE_Sender::BM_BE_Sender(string groupid, int num_users) {
     add_member(SENDER_MEMBER_ID);
     get_private_key(&SK, SENDER_MEMBER_ID);
     PK = sys->PK;
+
     
 }
 
@@ -207,7 +208,7 @@ void BM_BE_Sender::restore() {
     sys = (bkem_system_t) pbc_malloc(sizeof(struct bkem_system_s));
     
     // Public Key
-    public_key_from_stream(&PK, gbs, is, element_size);
+    public_key_from_stream(&sys->PK, gbs, is, element_size);
     
     // Restore private keys
     sys->d_i = (element_t*) pbc_malloc(gbs->N * sizeof(element_t));
@@ -217,6 +218,7 @@ void BM_BE_Sender::restore() {
     
     // Restore my own private key
     private_key_from_stream(&SK, gbs, is, element_size);
+    PK = sys->PK;
     
 }
 
@@ -250,7 +252,12 @@ void BM_BE_Sender::store() {
 
 
 BM_BE_Sender::~BM_BE_Sender() {
-    free_bkem_system(sys, gbs);
+    // only free d_i, BM_BE clears sys->PK
+    int i;
+    for (i = 0; i < gbs->N; ++i) {
+        element_clear(sys->d_i[i]);
+    }
+    
     availableIDs.clear();
     members.clear();
     stored_state.clear();

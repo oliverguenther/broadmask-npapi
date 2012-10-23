@@ -140,6 +140,7 @@ private:
     template<class Archive>
     void serialize(Archive & ar, const unsigned int version)
     {
+//        ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<BM_BE>(*this));
         ar & availableIDs;
         ar & stored_state;

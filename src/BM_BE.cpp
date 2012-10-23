@@ -98,48 +98,50 @@ ae_error_t BM_BE::bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& ct
     return result;
 }
 
-//ae_error_t BM_BE::ae_encrypt(AE_Ciphertext** ae_cts, bes_ciphertext_t& cts, AE_Plaintext* pts) {
-//    
-//    element_t raw_key;
-//    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
-//    
-//    unsigned char derived_key[AE_KEY_LENGTH];
-//    derivate_decryption_key(derived_key, raw_key);
-//    
-//    // Derive header raw data for authentication
-//    AE_Plaintext* header = new AE_Plaintext;
-//    unsigned char *buf;
-//    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
-//    header->plaintext = buf;
-//    header->len = hdr_size;
-//    
-//    ae_error_t result = encrypt_aead(ae_cts, derived_key, pts, header);
-//    
-//    delete header;
-//    return result;
-//}
-//
-//ae_error_t BM_BE::ae_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts, AE_Ciphertext* ae_cts) {
-//    
-//    element_t raw_key;
-//    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
-//    
-//    unsigned char derived_key[AE_KEY_LENGTH];
-//    derivate_decryption_key(derived_key, raw_key);
-//    
-//    // Derive header raw data for authentication
-//    AE_Plaintext* header = new AE_Plaintext;
-//    unsigned char *buf;
-//    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
-//    header->plaintext = buf;
-//    header->len = hdr_size;
-//    
-//    
-//    ae_error_t result = decrypt_aead(recovered_pts, derived_key, ae_cts, header);
-//    
-//    delete header;
-//    return result;
-//}
+ae_error_t BM_BE::encrypt_comment(AE_Ciphertext** ae_cts, bes_ciphertext_t& cts, AE_Plaintext* pts) {
+    
+    element_t raw_key;
+    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
+    
+    unsigned char derived_key[AE_KEY_LENGTH];
+    derivate_decryption_key(derived_key, raw_key);
+
+
+    
+    // Derive header raw data for authentication
+    AE_Plaintext* header = new AE_Plaintext;
+    unsigned char *buf;
+    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+    header->plaintext = buf;
+    header->len = hdr_size;
+        
+    ae_error_t result = encrypt_aead(ae_cts, derived_key, pts, header);
+    
+    delete header;
+    return result;
+}
+
+ae_error_t BM_BE::decrypt_comment(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts, AE_Ciphertext* ae_cts) {
+        
+    element_t raw_key;
+    get_decryption_key(raw_key, gbs, cts->receivers, cts->num_receivers, SK->id, SK->privkey, cts->HDR, PK);
+    
+    unsigned char derived_key[AE_KEY_LENGTH];
+    derivate_decryption_key(derived_key, raw_key);
+        
+    // Derive header raw data for authentication
+    AE_Plaintext* header = new AE_Plaintext;
+    unsigned char *buf;
+    size_t hdr_size = encryption_header_to_bytes(&buf, cts->HDR, gbs->A + 1);
+    header->plaintext = buf;
+    header->len = hdr_size;
+    
+    
+    ae_error_t result = decrypt_aead(recovered_pts, derived_key, ae_cts, header);
+    
+    delete header;
+    return result;
+}
 
 void BM_BE::restore() {
     

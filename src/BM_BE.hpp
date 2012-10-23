@@ -54,6 +54,9 @@ public:
     BM_BE(std::string groupid, int N, std::string public_data, std::string private_key);
     ~BM_BE();
     
+    ae_error_t encrypt_comment(AE_Ciphertext** ae_cts, bes_ciphertext_t& cts, AE_Plaintext* pts);
+    ae_error_t decrypt_comment(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts, AE_Ciphertext* ae_cts);
+    
     instance_types type() { return BROADMASK_INSTANCE_BM_BE; }
     
     /**
@@ -134,6 +137,7 @@ protected:
     {
         ar & boost::serialization::make_nvp( BOOST_PP_STRINGIZE(*this),boost::serialization::base_object<Instance>(*this));
         ar & keylen;
+        ar & N;
         ar & stored_state;
     }
     
