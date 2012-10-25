@@ -19,6 +19,9 @@ SOURCE_GROUP(X11 FILES ${PLATFORM})
 add_definitions(
 )
 
+set (CMAKE_CXX_FLAGS "-Wl,-R,'$ORIGIN/lib'")
+set (CMAKE_EXE_LINKER_FLAGS "-Wl,-R,'$ORIGIN/lib'")
+
 set (SOURCES
     ${SOURCES}
     ${PLATFORM}
