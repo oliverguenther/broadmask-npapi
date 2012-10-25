@@ -822,13 +822,17 @@ FB::VariantMap BroadmaskAPI::delete_profile(std::string profilename) {
 #pragma mark Internals
 
 ///////////////////////////////////////////////////////////////////////////////
-BroadmaskPtr BroadmaskAPI::getPlugin()
-{
+BroadmaskPtr BroadmaskAPI::getPlugin() {
 	BroadmaskPtr plugin(m_plugin.lock());
 	if (!plugin) {
 		throw FB::script_error("The plugin is invalid");
 	}
 	return plugin;
+}
+
+BroadmaskAPI::~BroadmaskAPI() {
+    if (pm)
+        delete pm;
 }
 
 ////////////////////////////////////////////////////////////////////////////
@@ -898,9 +902,4 @@ void BroadmaskAPI::ae_error_to_map(FB::VariantMap& result, ae_error_t& r) {
     if (r.error) {
         result["error_msg"] = r.error_msg;
     }    
-}
-
-BroadmaskAPI::~BroadmaskAPI() {
-    if (pm)
-        delete pm;
 }

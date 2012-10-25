@@ -21,7 +21,7 @@ On Mac OS X, you can use the [homebrew][homebrew] package manager. The following
 
 On Ubuntu, this installs all libraries except libpbc (for which no package is currently available, build it according to http://crypto.stanford.edu/pbc/manual/ch01s01.html)
 
-`apt-get install libgmp-dev libpbc-dev
+`apt-get install libgmp-dev libpbc-dev`
 
 ## Building the NPAPI-Plugin
 
@@ -31,9 +31,9 @@ Compiling a FireBreath plugin on windows requires Visual Studio {2008, 2009, 201
 
 `firebreath\prep2010.cmd src build` (replace 2010 with your version of Visual Studio)
 
-Then `cd` into the build directory and execute `cmake --build . --config MinSizeRel --target webpgPlugin`
+Then `cd` into the build directory and execute `cmake --build . --config MinSizeRel --target Broadmask`
 
-After successful build the plugin can be found at `build\bin\projects\BroadMask\MinSizeRel\npwebpgPlugin.dll
+After successful build the plugin can be found at `build\bin\projects\BroadMask\MinSizeRel\Broadmask.dll
 
 
 ### Mac OS X

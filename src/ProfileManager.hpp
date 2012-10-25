@@ -47,7 +47,7 @@
 #include <boost/shared_ptr.hpp>
 
 /**
- * @class ProfileManager ProfileManager.h
+ * @class ProfileManager ProfileManager.hpp
  * @brief Entrypoint to Profile Management
  *
  * The ProfileManager persists local profiles to disk, handling PGP encryption

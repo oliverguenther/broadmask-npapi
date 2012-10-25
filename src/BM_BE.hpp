@@ -54,7 +54,27 @@ public:
     BM_BE(std::string groupid, int N, std::string public_data, std::string private_key);
     ~BM_BE();
     
+    /**
+     * @brief Encrypt comment, given the corresponding bes_ciphertext
+     * @param[out] ae_cts Output AE_Ciphertext
+     * @param[in] cts The corresponding bes_ciphertext_t, used for deriving the encryption
+     * key [and authentication of HDR]
+     * @param[in] pts the plaintext input to encrypt
+     *
+     * @return ae_error_t with computation result
+     */
     ae_error_t encrypt_comment(AE_Ciphertext** ae_cts, bes_ciphertext_t& cts, AE_Plaintext* pts);
+    
+    /**
+     * @brief Decrypt comment, given an encrypted ciphertext and 
+     * the corresponding bes_ciphertext.
+     * @param[out] recovered_pts The recovered AE_Plaintext
+     * @param[in] cts The corresponding bes_ciphertext_t, used for deriving the encryption
+     * key [and authentication of HDR]
+     * @param[in] ae_cts The AE_Ciphertext to decrypt
+     *
+     * @return ae_error_t with computation result
+     */
     ae_error_t decrypt_comment(AE_Plaintext** recovered_pts, bes_ciphertext_t& cts, AE_Ciphertext* ae_cts);
     
     instance_types type() { return BROADMASK_INSTANCE_BM_BE; }
@@ -64,7 +84,7 @@ public:
      * @param recovered_pts recovered plaintext struct
      * @param cts bes_ciphertext_t
      *
-     * @return decrypted plain text or empty vector
+     * @return ae_error_t with computation result
      */
     ae_error_t bes_decrypt(AE_Plaintext** recovered_pts, bes_ciphertext_t& ct);
     

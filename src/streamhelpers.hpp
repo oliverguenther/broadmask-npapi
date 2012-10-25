@@ -21,7 +21,7 @@ extern "C" {
 }
 
 /**
- * @typedef private key struct
+ * @typedef bes_privkey_s private key struct
  * @brief Stores a BM-BE private key (pseudonym, key)
  */
 typedef struct bes_privkey_s {
@@ -32,7 +32,7 @@ typedef struct bes_privkey_s {
 }* bes_privkey_t;
 
 /**
- * @typedef BM-BE Ciphertext struct
+ * @typedef bes_ciphertext_s BM-BE Ciphertext struct
  * @brief Stores a BM-BE ciphertext
  */
 typedef struct bes_ciphertext_s {

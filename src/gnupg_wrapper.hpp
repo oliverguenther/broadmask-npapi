@@ -46,7 +46,10 @@
 #include <gpgme.h>
 #include <string>
 
-// Wraps enc/dec result and/or error information
+/**
+ * @struct gpgme_result
+ * @brief Wraps enc/dec result and/or error information
+ */
 typedef struct {
     char *result;
     bool error;
